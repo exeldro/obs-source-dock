@@ -18,7 +18,6 @@ static inline QSize GetPixelSize(QWidget *widget)
 }
 
 #ifdef ENABLE_WAYLAND
-#include <obs-nix-platform.h>
 
 class SurfaceEventFilter : public QObject {
 	OBSQTDisplay *display;

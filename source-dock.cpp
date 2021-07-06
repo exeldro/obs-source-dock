@@ -242,6 +242,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 			addDrawCallback);
 
 		mainLayout->addWidget(preview);
+	}else {
+		preview = nullptr;
 	}
 	if ((caps & OBS_SOURCE_AUDIO) != 0) {
 		obs_volmeter = obs_volmeter_create(OBS_FADER_LOG);
@@ -308,11 +310,15 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 		audioLayout->addWidget(mute);
 
 		mainLayout->addLayout(audioLayout);
+	}else {
+		obs_volmeter = nullptr;
 	}
 	if ((caps & OBS_SOURCE_CONTROLLABLE_MEDIA) != 0) {
 		mediaControl =
 			new MediaControl(OBSGetWeakRef(source), true, true);
 		mainLayout->addWidget(mediaControl);
+	}else {
+		mediaControl = nullptr;
 	}
 
 	auto *dockWidgetContents = new QWidget;
