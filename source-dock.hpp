@@ -1,5 +1,6 @@
 #pragma once
 
+#include <qboxlayout.h>
 #include <QCheckBox>
 #include <QDockWidget>
 #include <QSlider>
@@ -12,6 +13,12 @@
 #include "qt-display.hpp"
 #include "volume-meter.hpp"
 
+#define SHOW_PREVIEW 1
+#define SHOW_AUDIO 2
+#define SHOW_VOLUME 4
+#define SHOW_MUTE 8
+#define SHOW_MEDIA 16
+#define SHOW_ALL 31
 
 typedef std::function<bool(QObject *, QEvent *)> EventFilterFunc;
 
@@ -58,14 +65,9 @@ protected:
 class SourceDock : public QDockWidget {
 	Q_OBJECT
 
-
-
-
-
 private:
 	OBSSource source;
 	std::unique_ptr<OBSEventFilter> eventFilter;
-
 	
 	OBSQTDisplay *preview;
 	VolumeMeter *volMeter;
@@ -74,6 +76,9 @@ private:
 	SliderIgnoreScroll * slider;
 	MuteCheckBox * mute;
 	MediaControl * mediaControl;
+	QVBoxLayout * mainLayout;
+	QWidget * volControl;
+	bool switch_scene_enabled;
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
 	
@@ -103,7 +108,28 @@ private slots:
 public:
 	SourceDock(OBSSource source, QWidget *parent = nullptr);
 	~SourceDock();
-	void Rename(std::string new_name);
+
+	OBSSource GetSource();
+	void EnablePreview();
+	void DisablePreview();
+	bool PreviewEnabled();
+
+	void EnableVolMeter();
+	void DisableVolMeter();
+	bool VolMeterEnabled();
+
+	void EnableVolControls();
+	void DisableVolControls();
+	bool VolControlsEnabled();
+
+	void EnableMediaControls();
+	void DisableMediaControls();
+	bool MediaControlsEnabled();
+
+	void EnableSwitchScene();
+	void DisableSwitchScene();
+	bool SwitchSceneEnabled();
 };
 
+inline std::list<SourceDock *> source_docks;
 

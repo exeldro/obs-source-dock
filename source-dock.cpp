@@ -10,6 +10,7 @@
 #include <QVBoxLayout>
 
 #include "media-control.hpp"
+#include "source-dock-settings.hpp"
 #include "version.h"
 
 #define QT_UTF8(str) QString::fromUtf8(str)
@@ -26,42 +27,6 @@ OBS_MODULE_USE_DEFAULT_LOCALE("source-dock", "en-US")
  * media controls
  */
 
-std::map<std::string, SourceDock *> source_docks;
-
-static bool AddSourceMenu(void *data, obs_source_t *source)
-{
-	QMenu *menu = static_cast<QMenu *>(data);
-	auto *a = menu->addAction(QT_UTF8(obs_source_get_name(source)));
-	a->setCheckable(true);
-	auto it = source_docks.find(obs_source_get_name(source));
-	bool exists = it != source_docks.end();
-	a->setChecked(exists);
-	QObject::connect(a, &QAction::triggered, [source] {
-		auto it = source_docks.find(obs_source_get_name(source));
-		if (it != source_docks.end()) {
-			it->second->close();
-			it->second->deleteLater();
-			source_docks.erase(it);
-		}else {
-			const auto main_window = static_cast<QMainWindow *>(
-				obs_frontend_get_main_window());
-			auto *tmp = new SourceDock(source, main_window);
-			source_docks[obs_source_get_name(source)] = tmp;
-			tmp->show();
-		}
-	});
-	return true;
-}
-
-static void LoadMenu(QMenu *menu)
-{
-	menu->clear();
-	struct obs_frontend_source_list scenes = {};
-	obs_frontend_source_list_free(&scenes);
-	obs_enum_scenes(AddSourceMenu, menu);
-	obs_enum_sources(AddSourceMenu, menu);
-}
-
 static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 {
 	if (saving) {
@@ -69,8 +34,21 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 		obs_data_array_t *docks = obs_data_array_create();
 		for (const auto &it : source_docks) {
 			obs_data_t *dock = obs_data_create();
-			obs_data_set_string(dock, "source_name",
-					    it.first.c_str());
+			obs_data_set_string(
+				dock, "source_name",
+				obs_source_get_name(it->GetSource()));
+			obs_data_set_string(dock, "title",
+					    QT_TO_UTF8(it->windowTitle()));
+			obs_data_set_bool(dock, "preview",
+					  it->PreviewEnabled());
+			obs_data_set_bool(dock, "volmeter",
+					  it->VolMeterEnabled());
+			obs_data_set_bool(dock, "volcontrols",
+					  it->VolControlsEnabled());
+			obs_data_set_bool(dock, "mediacontrols",
+					  it->MediaControlsEnabled());
+			obs_data_set_bool(dock, "switchscene",
+					  it->SwitchSceneEnabled());
 			obs_data_array_push_back(docks, dock);
 		}
 		obs_data_set_array(obj, "docks", docks);
@@ -79,13 +57,12 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 		obs_data_release(obj);
 	} else {
 		for (const auto &it : source_docks) {
-			it.second->close();
-			it.second->deleteLater();
+			it->close();
+			it->deleteLater();
 		}
 		source_docks.clear();
 
-		obs_data_t *obj =
-			obs_data_get_obj(save_data, "source-dock");
+		obs_data_t *obj = obs_data_get_obj(save_data, "source-dock");
 		if (obj) {
 			obs_data_array_t *docks =
 				obs_data_get_array(obj, "docks");
@@ -95,19 +72,53 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						obs_frontend_get_main_window());
 				obs_frontend_push_ui_translation(
 					obs_module_get_string);
-				size_t count =
-					obs_data_array_count(docks);
+				size_t count = obs_data_array_count(docks);
 				for (size_t i = 0; i < count; i++) {
 					obs_data_t *dock =
-						obs_data_array_item(docks,
-								    i);
-					auto *s = obs_get_source_by_name(obs_data_get_string(dock, "source_name"));
+						obs_data_array_item(docks, i);
+					auto *s = obs_get_source_by_name(
+						obs_data_get_string(
+							dock, "source_name"));
 					if (s) {
 						auto *tmp = new SourceDock(
 							s, main_window);
-						source_docks[obs_source_get_name(
-							s)] = tmp;
+						auto title =
+							obs_data_get_string(
+								dock, "title");
+						if (!title || !strlen(title)) {
+							title = obs_source_get_name(
+								s);
+							tmp->EnablePreview();
+							tmp->EnableVolMeter();
+							tmp->EnableVolControls();
+							tmp->EnableMediaControls();
+							tmp->EnableSwitchScene();
+						}
+						tmp->setWindowTitle(
+							QT_UTF8(title));
+
+						source_docks.push_back(tmp);
+						if (obs_data_get_bool(
+							    dock, "preview"))
+							tmp->EnablePreview();
+
+						if (obs_data_get_bool(
+							    dock, "volmeter"))
+							tmp->EnableVolMeter();
+						if (obs_data_get_bool(
+							    dock,
+							    "volcontrols"))
+							tmp->EnableVolControls();
+						if (obs_data_get_bool(
+							    dock,
+							    "mediacontrols"))
+							tmp->EnableMediaControls();
+						if (obs_data_get_bool(
+							    dock,
+							    "switchscene"))
+							tmp->EnableSwitchScene();
 						tmp->show();
+						obs_source_release(s);
 					}
 				}
 				obs_frontend_pop_ui_translation();
@@ -121,36 +132,27 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 static void frontend_event(enum obs_frontend_event event, void *)
 {
 	if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CLEANUP ||
-		   event == OBS_FRONTEND_EVENT_EXIT) {
+	    event == OBS_FRONTEND_EVENT_EXIT) {
 		for (const auto &it : source_docks) {
-			it.second->close();
-			it.second->deleteLater();
+			it->close();
+			delete(it);
 		}
 		source_docks.clear();
 	}
 }
 
-static void source_rename(void *data, calldata_t *call_data)
-{
-	std::string new_name = calldata_string(call_data, "new_name");
-	std::string prev_name = calldata_string(call_data, "prev_name");
-	auto it = source_docks.find(prev_name);
-	if (it != source_docks.end()) {
-		source_docks[new_name] = it->second;
-		it->second->Rename(new_name);
-		source_docks.erase(it);
-	}
-}
-
 static void source_remove(void *data, calldata_t *call_data)
 {
-	std::string name = obs_source_get_name(
-		static_cast<obs_source_t *>(calldata_ptr(call_data, "source")));
-	auto it = source_docks.find(name);
-	if (it != source_docks.end()) {
-		it->second->close();
-		it->second->deleteLater();
-		source_docks.erase(it);
+	obs_source_t *source =
+		static_cast<obs_source_t *>(calldata_ptr(call_data, "source"));
+	for (auto it = source_docks.begin(); it != source_docks.end();) {
+		if ((*it)->GetSource().Get() == source) {
+			(*it)->close();
+			(*it)->deleteLater();
+			it = source_docks.erase(it);
+		} else {
+			++it;
+		}
 	}
 }
 
@@ -160,17 +162,24 @@ bool obs_module_load()
 
 	obs_frontend_add_save_callback(frontend_save_load, nullptr);
 	obs_frontend_add_event_callback(frontend_event, nullptr);
-	signal_handler_connect(obs_get_signal_handler(), "source_rename",
-			       source_rename, nullptr);
 	signal_handler_connect(obs_get_signal_handler(), "source_remove",
 			       source_remove, nullptr);
 
 	QAction *action =
 		static_cast<QAction *>(obs_frontend_add_tools_menu_qaction(
 			obs_module_text("SourceDock")));
-	QMenu *menu = new QMenu();
-	action->setMenu(menu);
-	QObject::connect(menu, &QMenu::aboutToShow, [menu] { LoadMenu(menu); });
+
+	auto cb = [] {
+		obs_frontend_push_ui_translation(obs_module_get_string);
+
+		SourceDockSettingsDialog sdsd(static_cast<QMainWindow *>(
+			obs_frontend_get_main_window()));
+		sdsd.exec();
+
+		obs_frontend_pop_ui_translation();
+	};
+
+	QAction::connect(action, &QAction::triggered, cb);
 	return true;
 }
 
@@ -178,10 +187,8 @@ void obs_module_unload()
 {
 	obs_frontend_remove_save_callback(frontend_save_load, nullptr);
 	obs_frontend_remove_event_callback(frontend_event, nullptr);
-	signal_handler_disconnect(obs_get_signal_handler(), "source_rename",
-			       source_rename, nullptr);
 	signal_handler_disconnect(obs_get_signal_handler(), "source_remove",
-			       source_remove, nullptr);
+				  source_remove, nullptr);
 }
 
 MODULE_EXPORT const char *obs_module_description(void)
@@ -204,142 +211,34 @@ MODULE_EXPORT const char *obs_module_name(void)
 SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	: QDockWidget(parent),
 	  source(source_),
-	  eventFilter(BuildEventFilter())
+	  eventFilter(BuildEventFilter()),
+	  preview(nullptr),
+	  volMeter(nullptr),
+	  obs_volmeter(nullptr),
+	  volControl(nullptr),
+	  mediaControl(nullptr),
+	  switch_scene_enabled(false)
 {
-	setFeatures(DockWidgetMovable | DockWidgetFloatable);
+	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
 	setObjectName("SourceDock");
 	setFloating(true);
 	hide();
 
-	QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-	uint32_t caps = obs_source_get_output_flags(source);
-
-	if ((caps & OBS_SOURCE_VIDEO) != 0) {
-
-		preview = new OBSQTDisplay(this);
-		preview->setObjectName(QStringLiteral("preview"));
-		QSizePolicy sizePolicy1(QSizePolicy::Expanding,
-					QSizePolicy::Expanding);
-		sizePolicy1.setHorizontalStretch(0);
-		sizePolicy1.setVerticalStretch(0);
-		sizePolicy1.setHeightForWidth(
-			preview->sizePolicy().hasHeightForWidth());
-		preview->setSizePolicy(sizePolicy1);
-		preview->setMinimumSize(QSize(24, 24));
-
-		preview->setMouseTracking(true);
-		preview->setFocusPolicy(Qt::StrongFocus);
-		preview->installEventFilter(eventFilter.get());
-
-		auto addDrawCallback = [this]() {
-			obs_display_add_draw_callback(preview->GetDisplay(),
-						      DrawPreview, this);
-		};
-		preview->show();
-		connect(preview, &OBSQTDisplay::DisplayCreated,
-			addDrawCallback);
-
-		mainLayout->addWidget(preview);
-	}else {
-		preview = nullptr;
-	}
-	if ((caps & OBS_SOURCE_AUDIO) != 0) {
-		obs_volmeter = obs_volmeter_create(OBS_FADER_LOG);
-		obs_volmeter_attach_source(obs_volmeter, source);
-
-		volMeter = new VolumeMeter(nullptr, obs_volmeter);
-
-		obs_volmeter_add_callback(obs_volmeter, OBSVolumeLevel, this);
-
-		mainLayout->addWidget(volMeter);
-
-		auto *audioLayout = new QHBoxLayout(this);
-
-		obs_data_t *settings = obs_source_get_private_settings(source);
-		const bool lock = obs_data_get_bool(settings, "volume_locked");
-		obs_data_release(settings);
-
-		locked = new LockedCheckBox();
-		locked->setSizePolicy(QSizePolicy::Maximum,
-				      QSizePolicy::Maximum);
-		locked->setFixedSize(16, 16);
-		locked->setChecked(lock);
-		locked->setStyleSheet("background: none");
-
-		connect(locked, &QCheckBox::stateChanged, this,
-			&SourceDock::LockVolumeControl, Qt::DirectConnection);
-
-		slider = new SliderIgnoreScroll(Qt::Horizontal);
-		slider->setSizePolicy(QSizePolicy::Expanding,
-				      QSizePolicy::Preferred);
-		slider->setEnabled(!lock);
-		slider->setMinimum(0);
-		slider->setMaximum(10000);
-		slider->setToolTip(QT_UTF8(obs_module_text("VolumeOutput")));
-		float mul = obs_source_get_volume(source);
-		float db = obs_mul_to_db(mul);
-		float def;
-		if (db >= 0.0f)
-			def = 1.0f;
-		else if (db <= -96.0f)
-			def = 0.0f;
-		else
-			def = (-log10f(-db + LOG_OFFSET_DB) - LOG_RANGE_VAL) /
-			      (LOG_OFFSET_VAL - LOG_RANGE_VAL);
-		slider->setValue(def * 10000.0f);
-
-		connect(slider, SIGNAL(valueChanged(int)), this,
-			SLOT(SliderChanged(int)));
-
-		mute = new MuteCheckBox();
-		mute->setEnabled(!lock);
-		mute->setChecked(obs_source_muted(source));
-
-		connect(mute, &QCheckBox::stateChanged, this,
-			&SourceDock::MuteVolumeControl, Qt::DirectConnection);
-
-		signal_handler_connect(obs_source_get_signal_handler(source),
-				       "mute", OBSMute, this);
-		signal_handler_connect(obs_source_get_signal_handler(source),
-				       "volume", OBSVolume, this);
-
-		audioLayout->addWidget(locked);
-		audioLayout->addWidget(slider);
-		audioLayout->addWidget(mute);
-
-		mainLayout->addLayout(audioLayout);
-	}else {
-		obs_volmeter = nullptr;
-	}
-	if ((caps & OBS_SOURCE_CONTROLLABLE_MEDIA) != 0) {
-		mediaControl =
-			new MediaControl(OBSGetWeakRef(source), true, true);
-		mainLayout->addWidget(mediaControl);
-	}else {
-		mediaControl = nullptr;
-	}
+	mainLayout = new QVBoxLayout(this);
 
 	auto *dockWidgetContents = new QWidget;
 	dockWidgetContents->setLayout(mainLayout);
 
 	setWidget(dockWidgetContents);
-
-	obs_source_inc_showing(source);
 }
 
 SourceDock::~SourceDock()
 {
-	if (preview)
-		obs_display_remove_draw_callback(preview->GetDisplay(), DrawPreview, this);
-	if (obs_volmeter)
-		obs_volmeter_remove_callback(obs_volmeter, OBSVolumeLevel, this);
-	signal_handler_disconnect(obs_source_get_signal_handler(source), "mute",
-			       OBSMute, this);
-	signal_handler_disconnect(obs_source_get_signal_handler(source), "volume",
-			       OBSVolume, this);
-	obs_source_dec_showing(source);
+	DisableVolMeter();
+	DisableVolControls();
+	DisableMediaControls();
+	DisablePreview();
 }
 
 static inline void GetScaleAndCenterPos(int baseCX, int baseCY, int windowCX,
@@ -521,11 +420,6 @@ bool SourceDock::GetSourceRelativeXY(int mouseX, int mouseY, int &relX,
 	return true;
 }
 
-void SourceDock::Rename(std::string new_name)
-{
-	setWindowTitle(QT_UTF8(new_name.c_str()));
-}
-
 OBSEventFilter *SourceDock::BuildEventFilter()
 {
 	return new OBSEventFilter([this](QObject *obj, QEvent *event) {
@@ -603,7 +497,6 @@ static int TranslateQtMouseEventModifiers(QMouseEvent *event)
 	return modifiers;
 }
 
-
 bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 {
 	bool mouseUp = event->type() == QEvent::MouseButtonRelease;
@@ -643,6 +536,11 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 		obs_source_send_mouse_click(source, &mouseEvent, button,
 					    mouseUp, clickCount);
 
+	if (mouseUp && switch_scene_enabled) {
+		obs_frontend_set_current_scene(source);
+	}
+
+	
 	return true;
 }
 
@@ -711,8 +609,6 @@ bool SourceDock::HandleFocusEvent(QFocusEvent *event)
 	return true;
 }
 
-
-
 bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 {
 	struct obs_key_event keyEvent;
@@ -729,6 +625,221 @@ bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 	obs_source_send_key_click(source, &keyEvent, keyUp);
 
 	return true;
+}
+
+void SourceDock::EnablePreview()
+{
+	if (preview != nullptr)
+		return;
+	uint32_t caps = obs_source_get_output_flags(source);
+	if ((caps & OBS_SOURCE_VIDEO) == 0)
+		return;
+	preview = new OBSQTDisplay(this);
+	preview->setObjectName(QStringLiteral("preview"));
+	QSizePolicy sizePolicy1(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	sizePolicy1.setHorizontalStretch(0);
+	sizePolicy1.setVerticalStretch(0);
+	sizePolicy1.setHeightForWidth(
+		preview->sizePolicy().hasHeightForWidth());
+	preview->setSizePolicy(sizePolicy1);
+	preview->setMinimumSize(QSize(24, 24));
+
+	preview->setMouseTracking(true);
+	preview->setFocusPolicy(Qt::StrongFocus);
+	preview->installEventFilter(eventFilter.get());
+
+	auto addDrawCallback = [this]() {
+		obs_display_add_draw_callback(preview->GetDisplay(),
+					      DrawPreview, this);
+	};
+	preview->show();
+	connect(preview, &OBSQTDisplay::DisplayCreated, addDrawCallback);
+
+	mainLayout->addWidget(preview);
+	obs_source_inc_showing(source);
+}
+
+void SourceDock::DisablePreview()
+{
+	if (!preview)
+		return;
+	obs_display_remove_draw_callback(preview->GetDisplay(), DrawPreview,
+					 this);
+	mainLayout->removeWidget(preview);
+	preview->deleteLater();
+	preview = nullptr;
+	obs_source_dec_showing(source);
+}
+
+bool SourceDock::PreviewEnabled()
+{
+	return preview != nullptr;
+}
+
+void SourceDock::EnableVolMeter()
+{
+	if (obs_volmeter != nullptr)
+		return;
+
+	uint32_t caps = obs_source_get_output_flags(source);
+	if ((caps & OBS_SOURCE_AUDIO) == 0)
+		return;
+
+	obs_volmeter = obs_volmeter_create(OBS_FADER_LOG);
+	obs_volmeter_attach_source(obs_volmeter, source);
+
+	volMeter = new VolumeMeter(nullptr, obs_volmeter);
+
+	obs_volmeter_add_callback(obs_volmeter, OBSVolumeLevel, this);
+
+	mainLayout->addWidget(volMeter);
+}
+void SourceDock::DisableVolMeter()
+{
+	if (!obs_volmeter)
+		return;
+	obs_volmeter_remove_callback(obs_volmeter, OBSVolumeLevel, this);
+	obs_volmeter_destroy(obs_volmeter);
+	obs_volmeter = nullptr;
+
+	volMeter->deleteLater();
+	volMeter = nullptr;
+}
+
+bool SourceDock::VolMeterEnabled()
+{
+	return obs_volmeter != nullptr;
+}
+
+void SourceDock::EnableVolControls()
+{
+	if (volControl != nullptr)
+		return;
+	uint32_t caps = obs_source_get_output_flags(source);
+
+	if ((caps & OBS_SOURCE_AUDIO) == 0)
+		return;
+
+	volControl = new QWidget;
+	auto *audioLayout = new QHBoxLayout(this);
+
+	obs_data_t *settings = obs_source_get_private_settings(source);
+	const bool lock = obs_data_get_bool(settings, "volume_locked");
+	obs_data_release(settings);
+
+	locked = new LockedCheckBox();
+	locked->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+	locked->setFixedSize(16, 16);
+	locked->setChecked(lock);
+	locked->setStyleSheet("background: none");
+
+	connect(locked, &QCheckBox::stateChanged, this,
+		&SourceDock::LockVolumeControl, Qt::DirectConnection);
+
+	slider = new SliderIgnoreScroll(Qt::Horizontal);
+	slider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	slider->setEnabled(!lock);
+	slider->setMinimum(0);
+	slider->setMaximum(10000);
+	slider->setToolTip(QT_UTF8(obs_module_text("VolumeOutput")));
+	float mul = obs_source_get_volume(source);
+	float db = obs_mul_to_db(mul);
+	float def;
+	if (db >= 0.0f)
+		def = 1.0f;
+	else if (db <= -96.0f)
+		def = 0.0f;
+	else
+		def = (-log10f(-db + LOG_OFFSET_DB) - LOG_RANGE_VAL) /
+		      (LOG_OFFSET_VAL - LOG_RANGE_VAL);
+	slider->setValue(def * 10000.0f);
+
+	connect(slider, SIGNAL(valueChanged(int)), this,
+		SLOT(SliderChanged(int)));
+
+	mute = new MuteCheckBox();
+	mute->setEnabled(!lock);
+	mute->setChecked(obs_source_muted(source));
+
+	connect(mute, &QCheckBox::stateChanged, this,
+		&SourceDock::MuteVolumeControl, Qt::DirectConnection);
+
+	signal_handler_connect(obs_source_get_signal_handler(source), "mute",
+			       OBSMute, this);
+	signal_handler_connect(obs_source_get_signal_handler(source), "volume",
+			       OBSVolume, this);
+
+	audioLayout->addWidget(locked);
+	audioLayout->addWidget(slider);
+	audioLayout->addWidget(mute);
+
+	volControl->setLayout(audioLayout);
+	mainLayout->addWidget(volControl);
+}
+
+void SourceDock::DisableVolControls()
+{
+	if (!volControl)
+		return;
+	signal_handler_disconnect(obs_source_get_signal_handler(source), "mute",
+				  OBSMute, this);
+	signal_handler_disconnect(obs_source_get_signal_handler(source),
+				  "volume", OBSVolume, this);
+	mainLayout->removeWidget(volControl);
+	volControl->deleteLater();
+	volControl = nullptr;
+}
+bool SourceDock::VolControlsEnabled()
+{
+	return volControl != nullptr;
+}
+
+void SourceDock::EnableMediaControls()
+{
+	if (mediaControl != nullptr)
+		return;
+	uint32_t caps = obs_source_get_output_flags(source);
+	if ((caps & OBS_SOURCE_CONTROLLABLE_MEDIA) == 0)
+		return;
+	mediaControl = new MediaControl(OBSGetWeakRef(source), true, true);
+	mainLayout->addWidget(mediaControl);
+}
+
+void SourceDock::DisableMediaControls()
+{
+	if (!mediaControl)
+		return;
+
+	mainLayout->removeWidget(mediaControl);
+	mediaControl->deleteLater();
+	mediaControl = nullptr;
+}
+
+bool SourceDock::MediaControlsEnabled()
+{
+	return mediaControl != nullptr;
+}
+
+void SourceDock::EnableSwitchScene()
+{
+	if (!obs_source_is_scene(source))
+		return;
+	switch_scene_enabled = true;
+}
+
+void SourceDock::DisableSwitchScene()
+{
+	switch_scene_enabled = false;
+}
+
+bool SourceDock::SwitchSceneEnabled()
+{
+	return switch_scene_enabled;
+}
+
+OBSSource SourceDock::GetSource()
+{
+	return source;
 }
 
 LockedCheckBox::LockedCheckBox() {}

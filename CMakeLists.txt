@@ -1,10 +1,11 @@
-project(source-dock VERSION 0.0.2)
+project(source-dock VERSION 0.1.0)
 set(PROJECT_FULL_NAME "Source Dock")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_SOURCE_DIR}/version.h)
 
 set(source-dock_HEADERS
 	source-dock.hpp
+	source-dock-settings.hpp
 	qt-display.hpp
 	media-control.hpp
 	media-slider.hpp
@@ -13,6 +14,7 @@ set(source-dock_HEADERS
 	version.h)
 set(source-dock_SOURCES
 	source-dock.cpp
+	source-dock-settings.cpp
 	qt-display.cpp
 	media-control.cpp
 	media-slider.cpp
