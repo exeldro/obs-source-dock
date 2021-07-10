@@ -166,6 +166,7 @@ void SourceDockSettingsDialog::AddClicked()
 		static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	auto *tmp = new SourceDock(source, main_window);
 	tmp->setWindowTitle(title);
+	tmp->setObjectName(title);
 	if (previewCheckBox->isChecked())
 		tmp->EnablePreview();
 	if (volMeterCheckBox->isChecked())

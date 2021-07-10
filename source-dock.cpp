@@ -99,6 +99,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						}
 						tmp->setWindowTitle(
 							QT_UTF8(title));
+						tmp->setObjectName(
+							QT_UTF8(title));
 
 						source_docks.push_back(tmp);
 						if (obs_data_get_bool(
@@ -229,7 +231,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 {
 	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
-	setObjectName("SourceDock");
+	setObjectName(QT_UTF8(obs_source_get_name(source)));
 	setFloating(true);
 	hide();
 
