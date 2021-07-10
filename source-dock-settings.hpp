@@ -20,11 +20,12 @@ class SourceDockSettingsDialog : public QDialog {
 	QCheckBox *volControlsCheckBox;
 	QCheckBox *mediaControlsCheckBox;
 	QCheckBox *switchSceneCheckBox;
+	QCheckBox *showActiveCheckBox;
 
-	const int selectBoxColumn = 7;
+	int selectBoxColumn;
 
 	static bool AddSource(void *data, obs_source_t *source);
-	
+
 	void AddClicked();
 	void DeleteClicked();
 	void SelectAllChanged();

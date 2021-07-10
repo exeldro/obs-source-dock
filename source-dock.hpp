@@ -61,33 +61,34 @@ protected:
 	virtual void wheelEvent(QWheelEvent *event) override;
 };
 
-
 class SourceDock : public QDockWidget {
 	Q_OBJECT
 
 private:
 	OBSSource source;
 	std::unique_ptr<OBSEventFilter> eventFilter;
-	
+
 	OBSQTDisplay *preview;
 	VolumeMeter *volMeter;
 	obs_volmeter_t *obs_volmeter;
-	LockedCheckBox * locked;
-	SliderIgnoreScroll * slider;
-	MuteCheckBox * mute;
-	MediaControl * mediaControl;
-	QVBoxLayout * mainLayout;
-	QWidget * volControl;
+	LockedCheckBox *locked;
+	SliderIgnoreScroll *slider;
+	MuteCheckBox *mute;
+	MediaControl *mediaControl;
+	QVBoxLayout *mainLayout;
+	QWidget *volControl;
 	bool switch_scene_enabled;
+	QLabel *activeLabel;
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
-	
+
 	static void OBSVolumeLevel(void *data,
 				   const float magnitude[MAX_AUDIO_CHANNELS],
 				   const float peak[MAX_AUDIO_CHANNELS],
 				   const float inputPeak[MAX_AUDIO_CHANNELS]);
 	static void OBSVolume(void *data, calldata_t *calldata);
 	static void OBSMute(void *data, calldata_t *calldata);
+	static void OBSActiveChanged(void *, calldata_t *);
 
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
@@ -105,6 +106,8 @@ private slots:
 	void SliderChanged(int vol);
 	void SetOutputVolume(double volume);
 	void SetMute(bool muted);
+	void ActiveChanged();
+
 public:
 	SourceDock(OBSSource source, QWidget *parent = nullptr);
 	~SourceDock();
@@ -129,7 +132,10 @@ public:
 	void EnableSwitchScene();
 	void DisableSwitchScene();
 	bool SwitchSceneEnabled();
+
+	void EnableShowActive();
+	void DisableShowActive();
+	bool ShowActiveEnabled();
 };
 
 inline std::list<SourceDock *> source_docks;
-

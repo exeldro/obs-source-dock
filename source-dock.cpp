@@ -49,6 +49,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->MediaControlsEnabled());
 			obs_data_set_bool(dock, "switchscene",
 					  it->SwitchSceneEnabled());
+			obs_data_set_bool(dock, "showactive",
+					  it->ShowActiveEnabled());
 			obs_data_array_push_back(docks, dock);
 		}
 		obs_data_set_array(obj, "docks", docks);
@@ -93,6 +95,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							tmp->EnableVolControls();
 							tmp->EnableMediaControls();
 							tmp->EnableSwitchScene();
+							tmp->EnableShowActive();
 						}
 						tmp->setWindowTitle(
 							QT_UTF8(title));
@@ -117,6 +120,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							    dock,
 							    "switchscene"))
 							tmp->EnableSwitchScene();
+						if (obs_data_get_bool(
+							    dock, "showactive"))
+							tmp->EnableShowActive();
 						tmp->show();
 						obs_source_release(s);
 					}
@@ -135,7 +141,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 	    event == OBS_FRONTEND_EVENT_EXIT) {
 		for (const auto &it : source_docks) {
 			it->close();
-			delete(it);
+			delete (it);
 		}
 		source_docks.clear();
 	}
@@ -172,10 +178,11 @@ bool obs_module_load()
 	auto cb = [] {
 		obs_frontend_push_ui_translation(obs_module_get_string);
 
-		SourceDockSettingsDialog sdsd(static_cast<QMainWindow *>(
-			obs_frontend_get_main_window()));
-		sdsd.exec();
-
+		SourceDockSettingsDialog *sdsd =
+			new SourceDockSettingsDialog(static_cast<QMainWindow *>(
+				obs_frontend_get_main_window()));
+		sdsd->show();
+		sdsd->setAttribute(Qt::WA_DeleteOnClose, true);
 		obs_frontend_pop_ui_translation();
 	};
 
@@ -217,7 +224,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  obs_volmeter(nullptr),
 	  volControl(nullptr),
 	  mediaControl(nullptr),
-	  switch_scene_enabled(false)
+	  switch_scene_enabled(false),
+	  activeLabel(nullptr)
 {
 	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
@@ -235,6 +243,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
+	DisableShowActive();
 	DisableVolMeter();
 	DisableVolControls();
 	DisableMediaControls();
@@ -329,6 +338,13 @@ void SourceDock::OBSMute(void *data, calldata_t *call_data)
 				  Q_ARG(bool, muted));
 }
 
+void SourceDock::OBSActiveChanged(void *data, calldata_t *call_data)
+{
+	SourceDock *sourceDock = static_cast<SourceDock *>(data);
+	QMetaObject::invokeMethod(sourceDock, "ActiveChanged",
+				  Qt::QueuedConnection);
+}
+
 void SourceDock::LockVolumeControl(bool lock)
 {
 	slider->setEnabled(!lock);
@@ -360,6 +376,20 @@ void SourceDock::SetOutputVolume(double volume)
 void SourceDock::SetMute(bool muted)
 {
 	mute->setChecked(muted);
+}
+
+void SourceDock::ActiveChanged()
+{
+	if (!activeLabel)
+		return;
+	bool active = obs_source_active(source);
+	activeLabel->setText(
+		QT_UTF8(obs_module_text(active ? "Active" : "NotActive")));
+	activeLabel->setProperty("themeID", active ? "good" : "");
+	/* force style sheet recalculation */
+	QString qss = activeLabel->styleSheet();
+	activeLabel->setStyleSheet("/* */");
+	activeLabel->setStyleSheet(qss);
 }
 
 void SourceDock::SliderChanged(int vol)
@@ -540,7 +570,6 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 		obs_frontend_set_current_scene(source);
 	}
 
-	
 	return true;
 }
 
@@ -835,6 +864,42 @@ void SourceDock::DisableSwitchScene()
 bool SourceDock::SwitchSceneEnabled()
 {
 	return switch_scene_enabled;
+}
+
+void SourceDock::EnableShowActive()
+{
+	if (activeLabel)
+		return;
+
+	activeLabel = new QLabel;
+	activeLabel->setAlignment(Qt::AlignCenter);
+	ActiveChanged();
+	mainLayout->addWidget(activeLabel);
+	signal_handler_t *sh = obs_source_get_signal_handler(source);
+	if (sh) {
+		signal_handler_connect(sh, "activate", OBSActiveChanged, this);
+		signal_handler_connect(sh, "deactivate", OBSActiveChanged,
+				       this);
+	}
+}
+
+void SourceDock::DisableShowActive()
+{
+	signal_handler_t *sh = obs_source_get_signal_handler(source);
+	if (sh) {
+		signal_handler_disconnect(sh, "activate", OBSActiveChanged,
+					  this);
+		signal_handler_disconnect(sh, "deactivate", OBSActiveChanged,
+					  this);
+	}
+
+	mainLayout->removeWidget(activeLabel);
+	activeLabel->deleteLater();
+	activeLabel = nullptr;
+}
+bool SourceDock::ShowActiveEnabled()
+{
+	return activeLabel != nullptr;
 }
 
 OBSSource SourceDock::GetSource()

@@ -43,6 +43,11 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label = new VerticalLabel(obs_module_text("SwitchScene"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("ShowActive"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+
+	selectBoxColumn = idx;
 
 	QCheckBox *checkbox = new QCheckBox;
 	mainLayout->addWidget(checkbox, 0, idx++, Qt::AlignCenter);
@@ -69,7 +74,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 	titleEdit = new QLineEdit();
 	mainLayout->addWidget(titleEdit, 1, idx++);
-	
+
 	previewCheckBox = new QCheckBox();
 	previewCheckBox->setChecked(true);
 	mainLayout->addWidget(previewCheckBox, 1, idx++);
@@ -89,6 +94,10 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	switchSceneCheckBox = new QCheckBox();
 	switchSceneCheckBox->setChecked(true);
 	mainLayout->addWidget(switchSceneCheckBox, 1, idx++);
+
+	showActiveCheckBox = new QCheckBox();
+	showActiveCheckBox->setChecked(true);
+	mainLayout->addWidget(showActiveCheckBox, 1, idx++);
 
 	QPushButton *addButton = new QPushButton(obs_module_text("Add"));
 	connect(addButton, &QPushButton::clicked, [this]() { AddClicked(); });
@@ -165,6 +174,10 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableVolControls();
 	if (mediaControlsCheckBox->isChecked())
 		tmp->EnableMediaControls();
+	if (switchSceneCheckBox->isChecked())
+		tmp->EnableSwitchScene();
+	if (showActiveCheckBox->isChecked())
+		tmp->EnableShowActive();
 	source_docks.push_back(tmp);
 	tmp->show();
 	obs_source_release(source);
@@ -189,16 +202,18 @@ void SourceDockSettingsDialog::RefreshTable()
 	const auto sourceName = sourceCombo->currentText();
 	const auto title = titleEdit->text();
 	for (const auto &it : source_docks) {
+		if (it->isHidden())
+			it->show();
 		if (!sourceName.isEmpty() &&
 		    !QString::fromUtf8(obs_source_get_name(it->GetSource()))
 			     .contains(sourceName, Qt::CaseInsensitive))
 			continue;
 		QString t = it->windowTitle();
-		if (!title.isEmpty() &&
-		    !t.contains(title, Qt::CaseInsensitive))
+		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
 		auto col = 0;
-		auto *label = new QLabel(QString::fromUtf8(obs_source_get_name(it->GetSource())));
+		auto *label = new QLabel(QString::fromUtf8(
+			obs_source_get_name(it->GetSource())));
 		mainLayout->addWidget(label, row, col++);
 
 		label = new QLabel(t);
@@ -271,7 +286,19 @@ void SourceDockSettingsDialog::RefreshTable()
 		});
 		mainLayout->addWidget(checkBox, row, col++);
 
-		
+		checkBox = new QCheckBox;
+		checkBox->setChecked(dock->ShowActiveEnabled());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->EnableShowActive();
+				if (!dock->ShowActiveEnabled())
+					checkBox->setChecked(false);
+			} else {
+				dock->DisableShowActive();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
 		checkBox = new QCheckBox;
 		mainLayout->addWidget(checkBox, row, col++, Qt::AlignCenter);
 		row++;
@@ -335,13 +362,14 @@ void SourceDockSettingsDialog::DeleteClicked()
 		if (!label)
 			continue;
 		auto title = label->text();
-		for (auto it = source_docks.begin(); it != source_docks.end();) {
+		for (auto it = source_docks.begin();
+		     it != source_docks.end();) {
 			if ((*it)->windowTitle() != title) {
 				++it;
 				continue;
 			}
-			if (sourceName != obs_source_get_name(
-				    (*it)->GetSource())) {
+			if (sourceName !=
+			    obs_source_get_name((*it)->GetSource())) {
 				++it;
 				continue;
 			}
