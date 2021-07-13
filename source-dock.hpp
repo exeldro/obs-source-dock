@@ -45,6 +45,14 @@ public:
 	explicit LockedCheckBox(QWidget *parent);
 };
 
+class VisibilityCheckBox : public QCheckBox {
+	Q_OBJECT
+
+public:
+	VisibilityCheckBox();
+	explicit VisibilityCheckBox(QWidget *parent);
+};
+
 class MuteCheckBox : public QCheckBox {
 	Q_OBJECT
 };
@@ -79,6 +87,13 @@ private:
 	QWidget *volControl;
 	bool switch_scene_enabled;
 	QLabel *activeLabel;
+	QWidget *sceneItems;
+
+	OBSSignal visibleSignal;
+	OBSSignal addSignal;
+	OBSSignal removeSignal;
+	OBSSignal reorderSignal;
+	OBSSignal refreshSignal;
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
 
@@ -89,6 +104,8 @@ private:
 	static void OBSVolume(void *data, calldata_t *calldata);
 	static void OBSMute(void *data, calldata_t *calldata);
 	static void OBSActiveChanged(void *, calldata_t *);
+	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
+				 void *data);
 
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
@@ -107,6 +124,8 @@ private slots:
 	void SetOutputVolume(double volume);
 	void SetMute(bool muted);
 	void ActiveChanged();
+	void VisibilityChanged(int id);
+	void RefreshItems();
 
 public:
 	SourceDock(OBSSource source, QWidget *parent = nullptr);
@@ -136,6 +155,10 @@ public:
 	void EnableShowActive();
 	void DisableShowActive();
 	bool ShowActiveEnabled();
+
+	void EnableSceneItems();
+	void DisableSceneItems();
+	bool SceneItemsEnabled();
 };
 
 inline std::list<SourceDock *> source_docks;

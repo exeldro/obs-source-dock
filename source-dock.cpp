@@ -51,6 +51,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->SwitchSceneEnabled());
 			obs_data_set_bool(dock, "showactive",
 					  it->ShowActiveEnabled());
+			obs_data_set_bool(dock, "sceneitems",
+					  it->SceneItemsEnabled());
 			obs_data_array_push_back(docks, dock);
 		}
 		obs_data_set_array(obj, "docks", docks);
@@ -125,6 +127,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						if (obs_data_get_bool(
 							    dock, "showactive"))
 							tmp->EnableShowActive();
+						if (obs_data_get_bool(
+							    dock, "sceneitems"))
+							tmp->EnableSceneItems();
 						tmp->show();
 						obs_source_release(s);
 					}
@@ -227,7 +232,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  volControl(nullptr),
 	  mediaControl(nullptr),
 	  switch_scene_enabled(false),
-	  activeLabel(nullptr)
+	  activeLabel(nullptr),
+	  sceneItems(nullptr)
 {
 	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
@@ -245,6 +251,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
+	DisableSceneItems();
 	DisableShowActive();
 	DisableVolMeter();
 	DisableVolControls();
@@ -904,6 +911,121 @@ bool SourceDock::ShowActiveEnabled()
 	return activeLabel != nullptr;
 }
 
+void SourceDock::EnableSceneItems()
+{
+	if (sceneItems)
+		return;
+	obs_scene_t *scene = obs_scene_from_source(source);
+	if (!scene)
+		return;
+
+	auto layout = new QGridLayout;
+
+	sceneItems = new QWidget;
+	sceneItems->setLayout(layout);
+
+	obs_scene_enum_items(scene, AddSceneItem, layout);
+
+	mainLayout->addWidget(sceneItems);
+
+	auto itemVisible = [](void *data, calldata_t *cd) {
+		const auto dock = static_cast<SourceDock *>(data);
+		const auto curItem = static_cast<obs_sceneitem_t *>(
+			calldata_ptr(cd, "item"));
+
+		const int id = (int)obs_sceneitem_get_id(curItem);
+		QMetaObject::invokeMethod(dock, "VisibilityChanged",
+					  Qt::QueuedConnection, Q_ARG(int, id));
+	};
+
+	auto refreshItems = [](void *data, calldata_t *cd) {
+		const auto dock = static_cast<SourceDock *>(data);
+		QMetaObject::invokeMethod(dock, "RefreshItems",
+					  Qt::QueuedConnection);
+	};
+
+	signal_handler_t *signal = obs_source_get_signal_handler(source);
+
+	addSignal.Connect(signal, "item_add", refreshItems, this);
+	removeSignal.Connect(signal, "item_remove", refreshItems, this);
+	reorderSignal.Connect(signal, "reorder", refreshItems, this);
+	refreshSignal.Connect(signal, "refresh", refreshItems, this);
+	visibleSignal.Connect(signal, "item_visible", itemVisible, this);
+}
+
+void SourceDock::VisibilityChanged(int id)
+{
+	auto layout = dynamic_cast<QGridLayout *>(sceneItems->layout());
+	auto count = layout->rowCount();
+
+	for (int i = 0; i < count; i++) {
+		QLayoutItem *item = layout->itemAtPosition(i, 1);
+		if (!item)
+			continue;
+		QWidget *w = item->widget();
+		if (!w)
+			continue;
+		if (id != w->property("id").toInt())
+			continue;
+		const auto scene = obs_scene_from_source(source);
+		obs_sceneitem_t *sceneitem =
+			obs_scene_find_sceneitem_by_id(scene, id);
+
+		auto checkBox = dynamic_cast<QCheckBox *>(w);
+		checkBox->setChecked(obs_sceneitem_visible(sceneitem));
+	}
+}
+
+void SourceDock::RefreshItems()
+{
+	DisableSceneItems();
+	EnableSceneItems();
+}
+
+bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
+			      void *data)
+{
+	QGridLayout *layout = static_cast<QGridLayout *>(data);
+
+	auto source = obs_sceneitem_get_source(item);
+	int row = layout->rowCount();
+	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
+	layout->addWidget(label, row, 0);
+
+	auto vis = new VisibilityCheckBox();
+	vis->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+	vis->setFixedSize(16, 16);
+	vis->setChecked(obs_sceneitem_visible(item));
+	vis->setStyleSheet("background: none");
+	vis->setProperty("id", (int)obs_sceneitem_get_id(item));
+	layout->addWidget(vis, row, 1);
+
+	auto setItemVisible = [item](bool val) {
+		obs_sceneitem_set_visible(item, val);
+	};
+
+	connect(vis, &QAbstractButton::clicked, setItemVisible);
+	return true;
+}
+void SourceDock::DisableSceneItems()
+{
+	if (!sceneItems)
+		return;
+
+	mainLayout->removeWidget(sceneItems);
+	sceneItems->deleteLater();
+	sceneItems = nullptr;
+	visibleSignal.Disconnect();
+	addSignal.Disconnect();
+	removeSignal.Disconnect();
+	reorderSignal.Disconnect();
+	refreshSignal.Disconnect();
+}
+bool SourceDock::SceneItemsEnabled()
+{
+	return sceneItems != nullptr;
+}
+
 OBSSource SourceDock::GetSource()
 {
 	return source;
@@ -912,6 +1034,10 @@ OBSSource SourceDock::GetSource()
 LockedCheckBox::LockedCheckBox() {}
 
 LockedCheckBox::LockedCheckBox(QWidget *parent) : QCheckBox(parent) {}
+
+VisibilityCheckBox::VisibilityCheckBox() {}
+
+VisibilityCheckBox::VisibilityCheckBox(QWidget *parent) : QCheckBox(parent) {}
 
 SliderIgnoreScroll::SliderIgnoreScroll(QWidget *parent) : QSlider(parent)
 {

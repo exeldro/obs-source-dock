@@ -21,6 +21,7 @@ class SourceDockSettingsDialog : public QDialog {
 	QCheckBox *mediaControlsCheckBox;
 	QCheckBox *switchSceneCheckBox;
 	QCheckBox *showActiveCheckBox;
+	QCheckBox *sceneItemsCheckBox;
 
 	int selectBoxColumn;
 

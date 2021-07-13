@@ -46,6 +46,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label = new VerticalLabel(obs_module_text("ShowActive"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("SceneItems"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 
 	selectBoxColumn = idx;
 
@@ -98,6 +101,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	showActiveCheckBox = new QCheckBox();
 	showActiveCheckBox->setChecked(true);
 	mainLayout->addWidget(showActiveCheckBox, 1, idx++);
+
+	sceneItemsCheckBox = new QCheckBox();
+	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
 
 	QPushButton *addButton = new QPushButton(obs_module_text("Add"));
 	connect(addButton, &QPushButton::clicked, [this]() { AddClicked(); });
@@ -179,6 +185,8 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableSwitchScene();
 	if (showActiveCheckBox->isChecked())
 		tmp->EnableShowActive();
+	if (sceneItemsCheckBox->isChecked())
+		tmp->EnableSceneItems();
 	source_docks.push_back(tmp);
 	tmp->show();
 	obs_source_release(source);
@@ -296,6 +304,19 @@ void SourceDockSettingsDialog::RefreshTable()
 					checkBox->setChecked(false);
 			} else {
 				dock->DisableShowActive();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
+		checkBox = new QCheckBox;
+		checkBox->setChecked(dock->SceneItemsEnabled());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->EnableSceneItems();
+				if (!dock->SceneItemsEnabled())
+					checkBox->setChecked(false);
+			} else {
+				dock->DisableSceneItems();
 			}
 		});
 		mainLayout->addWidget(checkBox, row, col++);
