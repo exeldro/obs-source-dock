@@ -54,6 +54,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_bool(dock, "sceneitems",
 					  it->SceneItemsEnabled());
 			obs_data_array_push_back(docks, dock);
+			obs_data_release(dock);
 		}
 		obs_data_set_array(obj, "docks", docks);
 		obs_data_set_obj(save_data, "source-dock", obj);
@@ -133,6 +134,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						tmp->show();
 						obs_source_release(s);
 					}
+					obs_data_release(dock);
 				}
 				obs_frontend_pop_ui_translation();
 				obs_data_array_release(docks);
