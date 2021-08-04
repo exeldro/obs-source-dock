@@ -2,6 +2,10 @@
 
 Plugin for OBS Studio to add docks.
 
+# Download
+
+https://obsproject.com/forum/resources/source-dock.1317/
+
 # Build
 - Build OBS Studio: https://obsproject.com/wiki/Install-Instructions
 - Check out this repository to UI/frontend-plugins/source-dock
