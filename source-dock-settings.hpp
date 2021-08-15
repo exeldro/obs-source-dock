@@ -15,6 +15,7 @@ class SourceDockSettingsDialog : public QDialog {
 	QGridLayout *mainLayout;
 	QComboBox *sourceCombo;
 	QLineEdit *titleEdit;
+	QCheckBox *visibleCheckBox;
 	QCheckBox *previewCheckBox;
 	QCheckBox *volMeterCheckBox;
 	QCheckBox *volControlsCheckBox;

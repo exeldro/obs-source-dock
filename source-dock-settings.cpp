@@ -28,6 +28,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label = new QLabel(obs_module_text("Title"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("Visible"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new VerticalLabel(obs_module_text("Preview"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
@@ -77,6 +80,10 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 	titleEdit = new QLineEdit();
 	mainLayout->addWidget(titleEdit, 1, idx++);
+
+	visibleCheckBox = new QCheckBox();
+	visibleCheckBox->setChecked(true);
+	mainLayout->addWidget(visibleCheckBox, 1, idx++);
 
 	previewCheckBox = new QCheckBox();
 	previewCheckBox->setChecked(true);
@@ -187,8 +194,14 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableShowActive();
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
+	if (visibleCheckBox->isChecked())
+		tmp->show();
+	else
+		tmp->hide();
 	source_docks.push_back(tmp);
-	tmp->show();
+	auto *a = static_cast<QAction *>(obs_frontend_add_dock(tmp));
+	tmp->setAction(a);
+
 	obs_source_release(source);
 	RefreshTable();
 }
@@ -211,8 +224,6 @@ void SourceDockSettingsDialog::RefreshTable()
 	const auto sourceName = sourceCombo->currentText();
 	const auto title = titleEdit->text();
 	for (const auto &it : source_docks) {
-		if (it->isHidden())
-			it->show();
 		if (!sourceName.isEmpty() &&
 		    !QString::fromUtf8(obs_source_get_name(it->GetSource()))
 			     .contains(sourceName, Qt::CaseInsensitive))
@@ -231,6 +242,17 @@ void SourceDockSettingsDialog::RefreshTable()
 		dock = it;
 
 		auto *checkBox = new QCheckBox;
+		checkBox->setChecked(!dock->isHidden());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->show();
+			} else {
+				dock->hide();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
+		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->PreviewEnabled());
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
 			if (checkBox->isChecked()) {

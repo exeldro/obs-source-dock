@@ -39,6 +39,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 				obs_source_get_name(it->GetSource()));
 			obs_data_set_string(dock, "title",
 					    QT_TO_UTF8(it->windowTitle()));
+			obs_data_set_bool(dock, "hidden", it->isHidden());
 			obs_data_set_bool(dock, "preview",
 					  it->PreviewEnabled());
 			obs_data_set_bool(dock, "volmeter",
@@ -131,7 +132,15 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						if (obs_data_get_bool(
 							    dock, "sceneitems"))
 							tmp->EnableSceneItems();
-						tmp->show();
+						if (obs_data_get_bool(dock,
+								      "hidden"))
+							tmp->hide();
+						else
+							tmp->show();
+						auto *a = static_cast<QAction *>(
+							obs_frontend_add_dock(
+								tmp));
+						tmp->setAction(a);
 						obs_source_release(s);
 					}
 					obs_data_release(dock);
@@ -235,7 +244,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  mediaControl(nullptr),
 	  switch_scene_enabled(false),
 	  activeLabel(nullptr),
-	  sceneItems(nullptr)
+	  sceneItems(nullptr),
+	  action(nullptr)
 {
 	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
@@ -253,6 +263,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
+	delete action;
 	DisableSceneItems();
 	DisableShowActive();
 	DisableVolMeter();
@@ -1031,6 +1042,11 @@ bool SourceDock::SceneItemsEnabled()
 OBSSource SourceDock::GetSource()
 {
 	return source;
+}
+
+void SourceDock::setAction(QAction *a)
+{
+	action = a;
 }
 
 LockedCheckBox::LockedCheckBox() {}

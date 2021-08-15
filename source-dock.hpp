@@ -75,6 +75,7 @@ class SourceDock : public QDockWidget {
 private:
 	OBSSource source;
 	std::unique_ptr<OBSEventFilter> eventFilter;
+	QAction *action;
 
 	OBSQTDisplay *preview;
 	VolumeMeter *volMeter;
@@ -130,6 +131,8 @@ private slots:
 public:
 	SourceDock(OBSSource source, QWidget *parent = nullptr);
 	~SourceDock();
+
+	void setAction(QAction *action);
 
 	OBSSource GetSource();
 	void EnablePreview();
