@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
+#include <QPushButton>
 #include <QWidgetAction>
 #include <QWindow>
 #include <QScreen>
@@ -935,6 +936,7 @@ void SourceDock::EnableSceneItems()
 	auto layout = new QGridLayout;
 
 	sceneItems = new QWidget;
+	sceneItems->setObjectName(QStringLiteral("contextContainer"));
 	sceneItems->setLayout(layout);
 
 	obs_scene_enum_items(scene, AddSceneItem, layout);
@@ -1005,13 +1007,39 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
 	layout->addWidget(label, row, 0);
 
+	auto prop = new QPushButton();
+	prop->setObjectName(QStringLiteral("sourcePropertiesButton"));
+	prop->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+	prop->setFixedSize(16, 16);
+	prop->setFlat(true);
+	layout->addWidget(prop, row, 1);
+
+	auto openProps = [source]() {
+		obs_frontend_open_source_properties(source);
+	};
+
+	connect(prop, &QAbstractButton::clicked, openProps);
+
+	auto filters = new QPushButton();
+	filters->setObjectName(QStringLiteral("sourceFiltersButton"));
+	filters->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+	filters->setFixedSize(16, 16);
+	filters->setFlat(true);
+	layout->addWidget(filters, row, 2);
+
+	auto openFilters = [source]() {
+		obs_frontend_open_source_filters(source);
+	};
+
+	connect(filters, &QAbstractButton::clicked, openFilters);
+
 	auto vis = new VisibilityCheckBox();
 	vis->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 	vis->setFixedSize(16, 16);
 	vis->setChecked(obs_sceneitem_visible(item));
 	vis->setStyleSheet("background: none");
 	vis->setProperty("id", (int)obs_sceneitem_get_id(item));
-	layout->addWidget(vis, row, 1);
+	layout->addWidget(vis, row, 3);
 
 	auto setItemVisible = [item](bool val) {
 		obs_sceneitem_set_visible(item, val);
