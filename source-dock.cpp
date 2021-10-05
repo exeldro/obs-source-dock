@@ -974,7 +974,7 @@ void SourceDock::VisibilityChanged(int id)
 	auto count = layout->rowCount();
 
 	for (int i = 0; i < count; i++) {
-		QLayoutItem *item = layout->itemAtPosition(i, 1);
+		QLayoutItem *item = layout->itemAtPosition(i, 3);
 		if (!item)
 			continue;
 		QWidget *w = item->widget();

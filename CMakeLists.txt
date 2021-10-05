@@ -1,4 +1,4 @@
-project(source-dock VERSION 0.1.4)
+project(source-dock VERSION 0.1.5)
 set(PROJECT_FULL_NAME "Source Dock")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_SOURCE_DIR}/version.h)
