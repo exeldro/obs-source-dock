@@ -55,6 +55,10 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->ShowActiveEnabled());
 			obs_data_set_bool(dock, "sceneitems",
 					  it->SceneItemsEnabled());
+			obs_data_set_bool(dock, "properties",
+					  it->PropertiesEnabled());
+			obs_data_set_bool(dock, "filters",
+					  it->FiltersEnabled());
 			obs_data_array_push_back(docks, dock);
 			obs_data_release(dock);
 		}
@@ -130,6 +134,12 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						if (obs_data_get_bool(
 							    dock, "showactive"))
 							tmp->EnableShowActive();
+						if (obs_data_get_bool(
+							    dock, "properties"))
+							tmp->EnableProperties();
+						if (obs_data_get_bool(
+							    dock, "filters"))
+							tmp->EnableFilters();
 						if (obs_data_get_bool(
 							    dock, "sceneitems"))
 							tmp->EnableSceneItems();
@@ -246,6 +256,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  switch_scene_enabled(false),
 	  activeLabel(nullptr),
 	  sceneItems(nullptr),
+	  propertiesButton(nullptr),
+	  filtersButton(nullptr),
 	  action(nullptr)
 {
 	setFeatures(AllDockWidgetFeatures);
@@ -257,6 +269,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	mainLayout = new QVBoxLayout(this);
 
 	auto *dockWidgetContents = new QWidget;
+	dockWidgetContents->setObjectName(QStringLiteral("contextContainer"));
 	dockWidgetContents->setLayout(mainLayout);
 
 	setWidget(dockWidgetContents);
@@ -265,6 +278,8 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 SourceDock::~SourceDock()
 {
 	delete action;
+	DisableFilters();
+	DisableProperties();
 	DisableSceneItems();
 	DisableShowActive();
 	DisableVolMeter();
@@ -1065,6 +1080,59 @@ void SourceDock::DisableSceneItems()
 bool SourceDock::SceneItemsEnabled()
 {
 	return sceneItems != nullptr;
+}
+
+void SourceDock::EnableProperties()
+{
+	if (propertiesButton)
+		return;
+
+	propertiesButton = new QPushButton;
+	propertiesButton->setObjectName(
+		QStringLiteral("sourcePropertiesButton"));
+	propertiesButton->setText(QT_UTF8(obs_module_text("Properties")));
+	mainLayout->addWidget(propertiesButton);
+	auto openProps = [this]() {
+		obs_frontend_open_source_properties(source);
+	};
+	connect(propertiesButton, &QAbstractButton::clicked, openProps);
+}
+
+void SourceDock::DisableProperties()
+{
+	mainLayout->removeWidget(propertiesButton);
+	propertiesButton->deleteLater();
+	propertiesButton = nullptr;
+}
+
+bool SourceDock::PropertiesEnabled()
+{
+	return propertiesButton != nullptr;
+}
+
+void SourceDock::EnableFilters()
+{
+	if (filtersButton)
+		return;
+
+	filtersButton = new QPushButton;
+	filtersButton->setObjectName(QStringLiteral("sourceFiltersButton"));
+	filtersButton->setText(QT_UTF8(obs_module_text("Filters")));
+	mainLayout->addWidget(filtersButton);
+	auto openProps = [this]() { obs_frontend_open_source_filters(source); };
+	connect(filtersButton, &QAbstractButton::clicked, openProps);
+}
+
+void SourceDock::DisableFilters()
+{
+	mainLayout->removeWidget(filtersButton);
+	filtersButton->deleteLater();
+	filtersButton = nullptr;
+}
+
+bool SourceDock::FiltersEnabled()
+{
+	return filtersButton != nullptr;
 }
 
 OBSSource SourceDock::GetSource()

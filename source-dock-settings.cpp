@@ -49,6 +49,12 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label = new VerticalLabel(obs_module_text("ShowActive"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("Properties"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("Filters"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new VerticalLabel(obs_module_text("SceneItems"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
@@ -108,6 +114,14 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	showActiveCheckBox = new QCheckBox();
 	showActiveCheckBox->setChecked(true);
 	mainLayout->addWidget(showActiveCheckBox, 1, idx++);
+
+	propertiesCheckBox = new QCheckBox();
+	propertiesCheckBox->setChecked(true);
+	mainLayout->addWidget(propertiesCheckBox, 1, idx++);
+
+	filtersCheckBox = new QCheckBox();
+	filtersCheckBox->setChecked(true);
+	mainLayout->addWidget(filtersCheckBox, 1, idx++);
 
 	sceneItemsCheckBox = new QCheckBox();
 	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
@@ -192,6 +206,10 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableSwitchScene();
 	if (showActiveCheckBox->isChecked())
 		tmp->EnableShowActive();
+	if (propertiesCheckBox->isChecked())
+		tmp->EnableProperties();
+	if (filtersCheckBox->isChecked())
+		tmp->EnableFilters();
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
 	if (visibleCheckBox->isChecked())
@@ -326,6 +344,32 @@ void SourceDockSettingsDialog::RefreshTable()
 					checkBox->setChecked(false);
 			} else {
 				dock->DisableShowActive();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
+		checkBox = new QCheckBox;
+		checkBox->setChecked(dock->PropertiesEnabled());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->EnableProperties();
+				if (!dock->PropertiesEnabled())
+					checkBox->setChecked(false);
+			} else {
+				dock->DisableProperties();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
+		checkBox = new QCheckBox;
+		checkBox->setChecked(dock->FiltersEnabled());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->EnableFilters();
+				if (!dock->FiltersEnabled())
+					checkBox->setChecked(false);
+			} else {
+				dock->DisableFilters();
 			}
 		});
 		mainLayout->addWidget(checkBox, row, col++);

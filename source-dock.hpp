@@ -89,6 +89,8 @@ private:
 	bool switch_scene_enabled;
 	QLabel *activeLabel;
 	QWidget *sceneItems;
+	QPushButton *propertiesButton;
+	QPushButton *filtersButton;
 
 	OBSSignal visibleSignal;
 	OBSSignal addSignal;
@@ -162,6 +164,14 @@ public:
 	void EnableSceneItems();
 	void DisableSceneItems();
 	bool SceneItemsEnabled();
+
+	void EnableProperties();
+	void DisableProperties();
+	bool PropertiesEnabled();
+
+	void EnableFilters();
+	void DisableFilters();
+	bool FiltersEnabled();
 };
 
 inline std::list<SourceDock *> source_docks;
