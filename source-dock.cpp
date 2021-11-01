@@ -173,6 +173,94 @@ static void frontend_event(enum obs_frontend_event event, void *)
 			delete (it);
 		}
 		source_docks.clear();
+	} else if (event == OBS_FRONTEND_EVENT_SCENE_CHANGED ||
+		   event == OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED ||
+		   event == OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED ||
+		   event == OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED) {
+		if (obs_frontend_preview_program_mode_active()) {
+			std::map<obs_source_t *, int> source_active;
+			for (const auto &it : source_docks) {
+				if (it->ShowActiveEnabled())
+					source_active[it->GetSource()] = 0;
+			}
+			if (source_active.empty())
+				return;
+			if (auto *preview =
+				    obs_frontend_get_current_preview_scene()) {
+				for (auto &i : source_active) {
+					if (i.first == preview) {
+						i.second = 1;
+						break;
+					}
+				}
+				obs_source_enum_active_tree(
+					preview,
+					[](obs_source_t *parent,
+					   obs_source_t *child, void *param) {
+						auto m = static_cast<std::map<
+							obs_source_t *, int> *>(
+							param);
+
+						for (auto &i : *m) {
+
+							if (i.first == child) {
+								i.second = 1;
+								break;
+							}
+						}
+					},
+					&source_active);
+				obs_source_release(preview);
+			}
+			if (auto *program = obs_frontend_get_current_scene()) {
+				const char *scene_name =
+					obs_source_get_name(program);
+				for (auto &i : source_active) {
+					auto *sn = obs_source_get_name(i.first);
+					if (strcmp(sn, scene_name) == 0) {
+						i.second = 2;
+						break;
+					}
+				}
+				obs_source_enum_active_tree(
+					program,
+					[](obs_source_t *parent,
+					   obs_source_t *child, void *param) {
+						auto m = static_cast<std::map<
+							obs_source_t *, int> *>(
+							param);
+						const char *child_name =
+							obs_source_get_name(
+								child);
+						if (!child_name ||
+						    strlen(child_name) == 0)
+							return;
+						for (auto &i : *m) {
+							auto *sn =
+								obs_source_get_name(
+									i.first);
+							if (strcmp(sn,
+								   child_name) ==
+							    0) {
+								i.second = 2;
+								break;
+							}
+						}
+					},
+					&source_active);
+				obs_source_release(program);
+			}
+			for (const auto &it : source_docks) {
+				it->SetActive(
+					source_active[it->GetSource().Get()]);
+			}
+		} else {
+			for (const auto &it : source_docks) {
+				it->SetActive(obs_source_active(it->GetSource())
+						      ? 2
+						      : 0);
+			}
+		}
 	}
 }
 
@@ -421,9 +509,38 @@ void SourceDock::ActiveChanged()
 	if (!activeLabel)
 		return;
 	bool active = obs_source_active(source);
-	activeLabel->setText(
-		QT_UTF8(obs_module_text(active ? "Active" : "NotActive")));
-	activeLabel->setProperty("themeID", active ? "good" : "");
+	if (active) {
+		activeLabel->setProperty("themeID", "good");
+		activeLabel->setText(QT_UTF8(obs_module_text("Active")));
+	} else if (!obs_frontend_preview_program_mode_active()) {
+		activeLabel->setText(QT_UTF8(obs_module_text("NotActive")));
+		activeLabel->setProperty("themeID", "");
+	}
+
+	/* force style sheet recalculation */
+	QString qss = activeLabel->styleSheet();
+	activeLabel->setStyleSheet("/* */");
+	activeLabel->setStyleSheet(qss);
+}
+
+void SourceDock::SetActive(int active)
+{
+	if (!activeLabel)
+		return;
+	if (active == 2) {
+		activeLabel->setProperty(
+			"themeID", obs_frontend_preview_program_mode_active()
+					   ? "error"
+					   : "good");
+		activeLabel->setText(QT_UTF8(obs_module_text("Active")));
+	} else if (active == 1) {
+		activeLabel->setProperty("themeID", "good");
+		activeLabel->setText(QT_UTF8(obs_module_text("Preview")));
+	} else {
+		activeLabel->setText(QT_UTF8(obs_module_text("NotActive")));
+		activeLabel->setProperty("themeID", "");
+	}
+
 	/* force style sheet recalculation */
 	QString qss = activeLabel->styleSheet();
 	activeLabel->setStyleSheet("/* */");
@@ -605,6 +722,13 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 					    mouseUp, clickCount);
 
 	if (mouseUp && switch_scene_enabled) {
+		if (obs_frontend_preview_program_mode_active()) {
+			obs_frontend_set_current_preview_scene(source);
+		} else {
+			obs_frontend_set_current_scene(source);
+		}
+	} else if (switch_scene_enabled && clickCount == 2 &&
+		   obs_frontend_preview_program_mode_active()) {
 		obs_frontend_set_current_scene(source);
 	}
 

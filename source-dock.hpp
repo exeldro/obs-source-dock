@@ -134,6 +134,8 @@ public:
 	SourceDock(OBSSource source, QWidget *parent = nullptr);
 	~SourceDock();
 
+	void SetActive(int active);
+
 	void setAction(QAction *action);
 
 	OBSSource GetSource();
