@@ -59,6 +59,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->PropertiesEnabled());
 			obs_data_set_bool(dock, "filters",
 					  it->FiltersEnabled());
+			obs_data_set_bool(dock, "textinput",
+					  it->TextInputEnabled());
 			obs_data_array_push_back(docks, dock);
 			obs_data_release(dock);
 		}
@@ -143,6 +145,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						if (obs_data_get_bool(
 							    dock, "sceneitems"))
 							tmp->EnableSceneItems();
+						if (obs_data_get_bool(
+							    dock, "textinput"))
+							tmp->EnableTextInput();
 						if (obs_data_get_bool(dock,
 								      "hidden"))
 							tmp->hide();
@@ -346,6 +351,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  sceneItems(nullptr),
 	  propertiesButton(nullptr),
 	  filtersButton(nullptr),
+	  textInput(nullptr),
 	  action(nullptr)
 {
 	setFeatures(AllDockWidgetFeatures);
@@ -1257,6 +1263,61 @@ void SourceDock::DisableFilters()
 bool SourceDock::FiltersEnabled()
 {
 	return filtersButton != nullptr;
+}
+
+void SourceDock::EnableTextInput()
+{
+	if (textInput)
+		return;
+
+	textInput = new QPlainTextEdit;
+	textInput->setObjectName(QStringLiteral("textInput"));
+	auto *settings = obs_source_get_settings(source);
+	if (settings) {
+		textInput->setPlainText(QT_UTF8(obs_data_get_string(settings, "text")));
+		obs_data_release(settings);
+	}
+
+	mainLayout->addWidget(textInput);
+	auto changeText = [this]() {
+		auto *settings = obs_source_get_settings(source);
+		if (settings) {
+			if (textInput->toPlainText() !=
+			    QT_UTF8(obs_data_get_string(settings, "text"))) {
+				obs_data_set_string(
+					settings, "text",
+					QT_TO_UTF8(textInput->toPlainText()));
+				obs_source_update(source, nullptr);
+			}
+			obs_data_release(settings);
+		}
+
+	};
+	connect(textInput, &QPlainTextEdit::textChanged, changeText);
+	auto updateText = [this]() {
+		auto *settings = obs_source_get_settings(source);
+		if (settings) {
+			if (textInput->toPlainText() !=
+			    QT_UTF8(obs_data_get_string(settings, "text"))) {
+				textInput->setPlainText(QT_UTF8(
+					obs_data_get_string(settings, "text")));
+			}
+			obs_data_release(settings);
+		}
+	};
+	connect(textInput, &QPlainTextEdit::selectionChanged, updateText);
+}
+
+void SourceDock::DisableTextInput()
+{
+	mainLayout->removeWidget(textInput);
+	textInput->deleteLater();
+	textInput = nullptr;
+}
+
+bool SourceDock::TextInputEnabled()
+{
+	return textInput != nullptr;
 }
 
 OBSSource SourceDock::GetSource()

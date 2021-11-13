@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QDockWidget>
 #include <QSlider>
+#include <QPlainTextEdit>
 
 #include "obs.h"
 #include <../UI/obs-frontend-api/obs-frontend-api.h>
@@ -91,6 +92,7 @@ private:
 	QWidget *sceneItems;
 	QPushButton *propertiesButton;
 	QPushButton *filtersButton;
+	QPlainTextEdit *textInput;
 
 	OBSSignal visibleSignal;
 	OBSSignal addSignal;
@@ -174,6 +176,10 @@ public:
 	void EnableFilters();
 	void DisableFilters();
 	bool FiltersEnabled();
+
+	void EnableTextInput();
+	void DisableTextInput();
+	bool TextInputEnabled();
 };
 
 inline std::list<SourceDock *> source_docks;

@@ -55,6 +55,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label = new VerticalLabel(obs_module_text("Filters"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new VerticalLabel(obs_module_text("TextInput"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new VerticalLabel(obs_module_text("SceneItems"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
@@ -122,6 +125,10 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	filtersCheckBox = new QCheckBox();
 	filtersCheckBox->setChecked(true);
 	mainLayout->addWidget(filtersCheckBox, 1, idx++);
+
+	textInputCheckBox = new QCheckBox();
+	textInputCheckBox->setChecked(true);
+	mainLayout->addWidget(textInputCheckBox, 1, idx++);
 
 	sceneItemsCheckBox = new QCheckBox();
 	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
@@ -210,6 +217,8 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableProperties();
 	if (filtersCheckBox->isChecked())
 		tmp->EnableFilters();
+	if (textInputCheckBox->isChecked())
+		tmp->EnableTextInput();
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
 	if (visibleCheckBox->isChecked())
@@ -370,6 +379,19 @@ void SourceDockSettingsDialog::RefreshTable()
 					checkBox->setChecked(false);
 			} else {
 				dock->DisableFilters();
+			}
+		});
+		mainLayout->addWidget(checkBox, row, col++);
+
+		checkBox = new QCheckBox;
+		checkBox->setChecked(dock->TextInputEnabled());
+		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+			if (checkBox->isChecked()) {
+				dock->EnableTextInput();
+				if (!dock->TextInputEnabled())
+					checkBox->setChecked(false);
+			} else {
+				dock->DisableTextInput();
 			}
 		});
 		mainLayout->addWidget(checkBox, row, col++);
