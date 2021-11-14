@@ -1272,16 +1272,15 @@ void SourceDock::EnableTextInput()
 
 	textInput = new QPlainTextEdit;
 	textInput->setObjectName(QStringLiteral("textInput"));
-	auto *settings = obs_source_get_settings(source);
-	if (settings) {
-		textInput->setPlainText(QT_UTF8(obs_data_get_string(settings, "text")));
+	if (auto *settings = obs_source_get_settings(source)) {
+		textInput->setPlainText(
+			QT_UTF8(obs_data_get_string(settings, "text")));
 		obs_data_release(settings);
 	}
 
 	mainLayout->addWidget(textInput);
 	auto changeText = [this]() {
-		auto *settings = obs_source_get_settings(source);
-		if (settings) {
+		if (auto *settings = obs_source_get_settings(source)) {
 			if (textInput->toPlainText() !=
 			    QT_UTF8(obs_data_get_string(settings, "text"))) {
 				obs_data_set_string(
@@ -1291,25 +1290,29 @@ void SourceDock::EnableTextInput()
 			}
 			obs_data_release(settings);
 		}
-
 	};
 	connect(textInput, &QPlainTextEdit::textChanged, changeText);
-	auto updateText = [this]() {
-		auto *settings = obs_source_get_settings(source);
-		if (settings) {
-			if (textInput->toPlainText() !=
-			    QT_UTF8(obs_data_get_string(settings, "text"))) {
-				textInput->setPlainText(QT_UTF8(
-					obs_data_get_string(settings, "text")));
+
+	textInputTimer = new QTimer(this);
+	connect(textInputTimer, &QTimer::timeout, this, [=]() {
+		if (auto *settings = obs_source_get_settings(source)) {
+			const auto text =
+				QT_UTF8(obs_data_get_string(settings, "text"));
+			if (textInput->toPlainText() != text) {
+				textInput->setPlainText(text);
 			}
 			obs_data_release(settings);
 		}
-	};
-	connect(textInput, &QPlainTextEdit::selectionChanged, updateText);
+	});
+	textInputTimer->start(1000);
 }
 
 void SourceDock::DisableTextInput()
 {
+	textInputTimer->stop();
+	textInputTimer->deleteLater();
+	textInputTimer = nullptr;
+
 	mainLayout->removeWidget(textInput);
 	textInput->deleteLater();
 	textInput = nullptr;

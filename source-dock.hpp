@@ -93,6 +93,7 @@ private:
 	QPushButton *propertiesButton;
 	QPushButton *filtersButton;
 	QPlainTextEdit *textInput;
+	QTimer *textInputTimer;
 
 	OBSSignal visibleSignal;
 	OBSSignal addSignal;
