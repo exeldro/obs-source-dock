@@ -61,6 +61,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->FiltersEnabled());
 			obs_data_set_bool(dock, "textinput",
 					  it->TextInputEnabled());
+			obs_data_set_string(
+				dock, "geometry",
+				it->saveGeometry().toBase64().constData());
 			obs_data_array_push_back(docks, dock);
 			obs_data_release(dock);
 		}
@@ -148,15 +151,24 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						if (obs_data_get_bool(
 							    dock, "textinput"))
 							tmp->EnableTextInput();
+						auto *a = static_cast<QAction *>(
+							obs_frontend_add_dock(
+								tmp));
+						tmp->setAction(a);
 						if (obs_data_get_bool(dock,
 								      "hidden"))
 							tmp->hide();
 						else
 							tmp->show();
-						auto *a = static_cast<QAction *>(
-							obs_frontend_add_dock(
-								tmp));
-						tmp->setAction(a);
+						const char *geometry =
+							obs_data_get_string(
+								dock,
+								"geometry");
+						if (geometry &&
+						    strlen(geometry))
+							tmp->restoreGeometry(
+								QByteArray::fromBase64(QByteArray(
+									geometry)));
 						obs_source_release(s);
 					}
 					obs_data_release(dock);
