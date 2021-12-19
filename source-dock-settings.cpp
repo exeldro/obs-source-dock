@@ -18,6 +18,7 @@
 
 SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	: QDialog(parent),
+	  mainLayout(new QGridLayout),
 	  sourceCombo(new QComboBox()),
 	  titleEdit(new QLineEdit()),
 	  windowEdit(new QLineEdit()),
@@ -34,9 +35,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	  textInputCheckBox(new QCheckBox())
 {
 	int idx = 0;
-	mainLayout = new QGridLayout;
+
 	mainLayout->setContentsMargins(0, 0, 0, 0);
-	QLabel *label = new QLabel(obs_module_text("Source"));
+	auto label = new QLabel(obs_module_text("Source"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new QLabel(obs_module_text("Title"));
@@ -303,8 +304,9 @@ void SourceDockSettingsDialog::RefreshTable()
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
+		const auto parent = dynamic_cast<QMainWindow *>(it->parent());
 		if (!window.isEmpty()) {
-			auto w = dynamic_cast<QMainWindow *>(it->parent())->windowTitle();
+			auto w = parent->windowTitle();
 			if (!w.contains(window, Qt::CaseInsensitive))
 				continue;
 		}
@@ -317,19 +319,21 @@ void SourceDockSettingsDialog::RefreshTable()
 		mainLayout->addWidget(label, row, col++);
 
 		label = new QLabel(
-			it->parent() == obs_frontend_get_main_window()
+			parent == obs_frontend_get_main_window()
 				? ""
-				: dynamic_cast<QMainWindow *>(it->parent())
-					  ->windowTitle());
+				: parent->windowTitle());
 		mainLayout->addWidget(label, row, col++);
 
 		dock = it;
 
 		auto *checkBox = new QCheckBox;
-		checkBox->setChecked(!dock->isHidden());
+		checkBox->setChecked(!dock->isHidden() && !parent->isHidden());
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
 			if (checkBox->isChecked()) {
 				dock->show();
+				const auto parent = dynamic_cast<QMainWindow *>(
+					dock->parent());
+				parent->show();
 			} else {
 				dock->hide();
 			}

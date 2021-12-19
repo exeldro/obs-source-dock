@@ -80,6 +80,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 		obs_data_array_release(docks);
 		obs_data_array_t *windows = obs_data_array_create();
 		for (const auto &it : source_windows) {
+			if (it->isHidden())
+				continue;
 			obs_data_t *window = obs_data_create();
 			QString wt = it->windowTitle();
 			auto t = wt.toUtf8();
