@@ -21,15 +21,12 @@ OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Exeldro");
 OBS_MODULE_USE_DEFAULT_LOCALE("source-dock", "en-US")
 
-/*
- * preview
- * volmeter
- * volslider
- * media controls
- */
+QMainWindow *GetSourceWindowByTitle(const QString window_name);
 
 static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 {
+	const auto main_window =
+		static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	if (saving) {
 		obs_data_t *obj = obs_data_create();
 		obs_data_array_t *docks = obs_data_array_create();
@@ -64,12 +61,40 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_string(
 				dock, "geometry",
 				it->saveGeometry().toBase64().constData());
+			auto *p = dynamic_cast<QMainWindow *>(it->parent());
+			if (p == main_window) {
+				obs_data_set_string(dock, "window", "");
+			} else {
+				QString wt = p->windowTitle();
+				auto t = wt.toUtf8();
+				const char *wtc = t.constData();
+				obs_data_set_string(dock, "window", wtc);
+			}
+			obs_data_set_int(dock, "dockarea",
+					 p->dockWidgetArea(it));
+			obs_data_set_bool(dock, "floating", it->isFloating());
 			obs_data_array_push_back(docks, dock);
 			obs_data_release(dock);
 		}
 		obs_data_set_array(obj, "docks", docks);
-		obs_data_set_obj(save_data, "source-dock", obj);
 		obs_data_array_release(docks);
+		obs_data_array_t *windows = obs_data_array_create();
+		for (const auto &it : source_windows) {
+			obs_data_t *window = obs_data_create();
+			QString wt = it->windowTitle();
+			auto t = wt.toUtf8();
+			const char *wtc = t.constData();
+			obs_data_set_string(window, "name", wtc);
+			obs_data_set_string(
+				window, "geometry",
+				it->saveGeometry().toBase64().constData());
+			obs_data_array_push_back(windows, window);
+			obs_data_release(window);
+		}
+		obs_data_set_array(obj, "windows", windows);
+		obs_data_array_release(windows);
+		obs_data_set_obj(save_data, "source-dock", obj);
+
 		obs_data_release(obj);
 	} else {
 		for (const auto &it : source_docks) {
@@ -80,14 +105,10 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 
 		obs_data_t *obj = obs_data_get_obj(save_data, "source-dock");
 		if (obj) {
+			obs_frontend_push_ui_translation(obs_module_get_string);
 			obs_data_array_t *docks =
 				obs_data_get_array(obj, "docks");
 			if (docks) {
-				const auto main_window =
-					static_cast<QMainWindow *>(
-						obs_frontend_get_main_window());
-				obs_frontend_push_ui_translation(
-					obs_module_get_string);
 				size_t count = obs_data_array_count(docks);
 				for (size_t i = 0; i < count; i++) {
 					obs_data_t *dock =
@@ -96,8 +117,17 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						obs_data_get_string(
 							dock, "source_name"));
 					if (s) {
+						const auto windowName = QT_UTF8(
+							obs_data_get_string(
+								dock,
+								"window"));
+						auto window =
+							GetSourceWindowByTitle(
+								windowName);
+						if (window == nullptr)
+							window = main_window;
 						auto *tmp = new SourceDock(
-							s, main_window);
+							s, window);
 						auto title =
 							obs_data_get_string(
 								dock, "title");
@@ -160,6 +190,27 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							tmp->hide();
 						else
 							tmp->show();
+						obs_source_release(s);
+
+						const auto dockarea = static_cast<
+							Qt::DockWidgetArea>(
+							obs_data_get_int(
+								dock,
+								"dockarea"));
+						if (dockarea !=
+						    window->dockWidgetArea(tmp))
+							window->addDockWidget(
+								dockarea, tmp);
+
+						const auto floating =
+							obs_data_get_bool(
+								dock,
+								"floating");
+						if (tmp->isFloating() !=
+						    floating)
+							tmp->setFloating(
+								floating);
+
 						const char *geometry =
 							obs_data_get_string(
 								dock,
@@ -169,13 +220,37 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							tmp->restoreGeometry(
 								QByteArray::fromBase64(QByteArray(
 									geometry)));
-						obs_source_release(s);
 					}
 					obs_data_release(dock);
 				}
-				obs_frontend_pop_ui_translation();
 				obs_data_array_release(docks);
 			}
+			obs_data_array_t *windows =
+				obs_data_get_array(obj, "windows");
+			if (windows) {
+				size_t count = obs_data_array_count(windows);
+				for (size_t i = 0; i < count; i++) {
+					obs_data_t *window =
+						obs_data_array_item(windows, i);
+					auto mainWindow = GetSourceWindowByTitle(
+						QT_UTF8(obs_data_get_string(
+							window, "name")));
+					if (mainWindow) {
+						const char *geometry =
+							obs_data_get_string(
+								window,
+								"geometry");
+						if (geometry &&
+						    strlen(geometry))
+							mainWindow->restoreGeometry(
+								QByteArray::fromBase64(QByteArray(
+									geometry)));
+					}
+					obs_data_release(window);
+				}
+				obs_data_array_release(windows);
+			}
+			obs_frontend_pop_ui_translation();
 			obs_data_release(obj);
 		}
 	}
@@ -190,6 +265,11 @@ static void frontend_event(enum obs_frontend_event event, void *)
 			delete (it);
 		}
 		source_docks.clear();
+		for (const auto &it : source_windows) {
+			it->close();
+			delete (it);
+		}
+		source_windows.clear();
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_CHANGED ||
 		   event == OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED ||
 		   event == OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED ||

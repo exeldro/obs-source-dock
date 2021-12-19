@@ -184,3 +184,4 @@ public:
 };
 
 inline std::list<SourceDock *> source_docks;
+inline std::list<QMainWindow *> source_windows;

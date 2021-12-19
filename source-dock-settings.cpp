@@ -17,7 +17,21 @@
 #define QT_TO_UTF8(str) str.toUtf8().constData()
 
 SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
-	: QDialog(parent)
+	: QDialog(parent),
+	  sourceCombo(new QComboBox()),
+	  titleEdit(new QLineEdit()),
+	  windowEdit(new QLineEdit()),
+	  visibleCheckBox(new QCheckBox()),
+	  previewCheckBox(new QCheckBox()),
+	  volMeterCheckBox(new QCheckBox()),
+	  volControlsCheckBox(new QCheckBox()),
+	  mediaControlsCheckBox(new QCheckBox()),
+	  switchSceneCheckBox(new QCheckBox()),
+	  showActiveCheckBox(new QCheckBox()),
+	  sceneItemsCheckBox(new QCheckBox()),
+	  propertiesCheckBox(new QCheckBox()),
+	  filtersCheckBox(new QCheckBox()),
+	  textInputCheckBox(new QCheckBox())
 {
 	int idx = 0;
 	mainLayout = new QGridLayout;
@@ -26,6 +40,9 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new QLabel(obs_module_text("Title"));
+	label->setStyleSheet("font-weight: bold;");
+	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
+	label = new QLabel(obs_module_text("Window"));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 	label = new VerticalLabel(obs_module_text("Visible"));
@@ -64,7 +81,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 	selectBoxColumn = idx;
 
-	QCheckBox *checkbox = new QCheckBox;
+	auto checkbox = new QCheckBox;
 	mainLayout->addWidget(checkbox, 0, idx++, Qt::AlignCenter);
 	mainLayout->setColumnStretch(0, 1);
 	mainLayout->setColumnStretch(1, 1);
@@ -73,7 +90,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 		[this]() { SelectAllChanged(); });
 
 	idx = 0;
-	sourceCombo = new QComboBox();
+
 	sourceCombo->setEditable(true);
 	auto *completer = sourceCombo->completer();
 	completer->setCaseSensitivity(Qt::CaseInsensitive);
@@ -87,78 +104,68 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	connect(sourceCombo, SIGNAL(editTextChanged(const QString &)),
 		SLOT(RefreshTable()));
 
-	titleEdit = new QLineEdit();
 	mainLayout->addWidget(titleEdit, 1, idx++);
 
-	visibleCheckBox = new QCheckBox();
+	mainLayout->addWidget(windowEdit, 1, idx++);
+
 	visibleCheckBox->setChecked(true);
 	mainLayout->addWidget(visibleCheckBox, 1, idx++);
 
-	previewCheckBox = new QCheckBox();
 	previewCheckBox->setChecked(true);
 	mainLayout->addWidget(previewCheckBox, 1, idx++);
 
-	volMeterCheckBox = new QCheckBox();
 	volMeterCheckBox->setChecked(true);
 	mainLayout->addWidget(volMeterCheckBox, 1, idx++);
 
-	volControlsCheckBox = new QCheckBox();
 	volControlsCheckBox->setChecked(true);
 	mainLayout->addWidget(volControlsCheckBox, 1, idx++);
 
-	mediaControlsCheckBox = new QCheckBox();
 	mediaControlsCheckBox->setChecked(true);
 	mainLayout->addWidget(mediaControlsCheckBox, 1, idx++);
 
-	switchSceneCheckBox = new QCheckBox();
 	switchSceneCheckBox->setChecked(true);
 	mainLayout->addWidget(switchSceneCheckBox, 1, idx++);
 
-	showActiveCheckBox = new QCheckBox();
 	showActiveCheckBox->setChecked(true);
 	mainLayout->addWidget(showActiveCheckBox, 1, idx++);
 
-	propertiesCheckBox = new QCheckBox();
 	propertiesCheckBox->setChecked(true);
 	mainLayout->addWidget(propertiesCheckBox, 1, idx++);
 
-	filtersCheckBox = new QCheckBox();
 	filtersCheckBox->setChecked(true);
 	mainLayout->addWidget(filtersCheckBox, 1, idx++);
 
-	textInputCheckBox = new QCheckBox();
 	textInputCheckBox->setChecked(true);
 	mainLayout->addWidget(textInputCheckBox, 1, idx++);
 
-	sceneItemsCheckBox = new QCheckBox();
 	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
 
-	QPushButton *addButton = new QPushButton(obs_module_text("Add"));
+	auto addButton = new QPushButton(obs_module_text("Add"));
 	connect(addButton, &QPushButton::clicked, [this]() { AddClicked(); });
 	mainLayout->addWidget(addButton, 1, idx++, Qt::AlignCenter);
 
 	RefreshTable();
 
-	QWidget *controlArea = new QWidget;
+	auto controlArea = new QWidget;
 	controlArea->setLayout(mainLayout);
 	controlArea->setSizePolicy(QSizePolicy::Preferred,
 				   QSizePolicy::Preferred);
 
-	QVBoxLayout *vlayout = new QVBoxLayout;
+	auto vlayout = new QVBoxLayout;
 	vlayout->addWidget(controlArea);
 	//vlayout->setAlignment(controlArea, Qt::AlignTop);
-	QWidget *widget = new QWidget;
+	auto widget = new QWidget;
 	widget->setLayout(vlayout);
 	widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 
-	QScrollArea *scrollArea = new QScrollArea;
+	auto scrollArea = new QScrollArea;
 	scrollArea->setWidget(widget);
 	scrollArea->setWidgetResizable(true);
 
-	QPushButton *closeButton = new QPushButton(obs_module_text("Close"));
-	QPushButton *deleteButton = new QPushButton(obs_module_text("Delete"));
+	auto closeButton = new QPushButton(obs_module_text("Close"));
+	auto deleteButton = new QPushButton(obs_module_text("Delete"));
 
-	QHBoxLayout *bottomLayout = new QHBoxLayout;
+	auto bottomLayout = new QHBoxLayout;
 	bottomLayout->addWidget(deleteButton, 0, Qt::AlignLeft);
 	bottomLayout->addWidget(closeButton, 0, Qt::AlignRight);
 
@@ -180,6 +187,31 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 SourceDockSettingsDialog::~SourceDockSettingsDialog() {}
 
+QMainWindow *GetSourceWindowByTitle(const QString window_name)
+{
+	if (window_name.isEmpty())
+		return nullptr;
+	for (const auto &it : source_windows) {
+		if (it->windowTitle() == window_name) {
+			return it;
+		}
+	}
+
+	auto main_window = new QMainWindow();
+	main_window->setWindowTitle(window_name);
+	const auto label = new QLabel(main_window);
+	label->setText("▣");
+	const auto w = new QWidget(main_window);
+	w->setFixedSize(30, 30);
+	const auto l = new QHBoxLayout();
+	l->addWidget(label);
+	w->setLayout(l);
+	main_window->setCentralWidget(w);
+	main_window->show();
+	source_windows.push_back(main_window);
+	return main_window;
+}
+
 void SourceDockSettingsDialog::AddClicked()
 {
 	const auto sn = sourceCombo->currentText();
@@ -196,8 +228,13 @@ void SourceDockSettingsDialog::AddClicked()
 	if (!source)
 		return;
 
-	const auto main_window =
-		static_cast<QMainWindow *>(obs_frontend_get_main_window());
+	QMainWindow *main_window = nullptr;
+	auto window_name = windowEdit->text();
+	main_window = GetSourceWindowByTitle(window_name);
+	if (main_window == nullptr)
+		main_window = static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
+
 	auto *tmp = new SourceDock(source, main_window);
 	tmp->setWindowTitle(title);
 	tmp->setObjectName(title);
@@ -221,10 +258,17 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableTextInput();
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
+
 	if (visibleCheckBox->isChecked())
 		tmp->show();
 	else
 		tmp->hide();
+
+	if (!window_name.isEmpty()) {
+		main_window->addDockWidget(Qt::LeftDockWidgetArea, tmp);
+		tmp->setFloating(false);
+		//main_window->focusWidget();
+	}
 	source_docks.push_back(tmp);
 	auto *a = static_cast<QAction *>(obs_frontend_add_dock(tmp));
 	tmp->setAction(a);
@@ -250,6 +294,7 @@ void SourceDockSettingsDialog::RefreshTable()
 	SourceDock *dock = nullptr;
 	const auto sourceName = sourceCombo->currentText();
 	const auto title = titleEdit->text();
+	const auto window = windowEdit->text();
 	for (const auto &it : source_docks) {
 		if (!sourceName.isEmpty() &&
 		    !QString::fromUtf8(obs_source_get_name(it->GetSource()))
@@ -258,12 +303,24 @@ void SourceDockSettingsDialog::RefreshTable()
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
+		if (!window.isEmpty()) {
+			auto w = dynamic_cast<QMainWindow *>(it->parent())->windowTitle();
+			if (!w.contains(window, Qt::CaseInsensitive))
+				continue;
+		}
 		auto col = 0;
 		auto *label = new QLabel(QString::fromUtf8(
 			obs_source_get_name(it->GetSource())));
 		mainLayout->addWidget(label, row, col++);
 
 		label = new QLabel(t);
+		mainLayout->addWidget(label, row, col++);
+
+		label = new QLabel(
+			it->parent() == obs_frontend_get_main_window()
+				? ""
+				: dynamic_cast<QMainWindow *>(it->parent())
+					  ->windowTitle());
 		mainLayout->addWidget(label, row, col++);
 
 		dock = it;
