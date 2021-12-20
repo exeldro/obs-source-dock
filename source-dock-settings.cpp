@@ -37,46 +37,46 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	int idx = 0;
 
 	mainLayout->setContentsMargins(0, 0, 0, 0);
-	auto label = new QLabel(obs_module_text("Source"));
+	auto label = new QLabel(QT_UTF8(obs_module_text("Source")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new QLabel(obs_module_text("Title"));
+	label = new QLabel(QT_UTF8(obs_module_text("Title")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new QLabel(obs_module_text("Window"));
+	label = new QLabel(QT_UTF8(obs_module_text("Window")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("Visible"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("Visible")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("Preview"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("Preview")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("VolumeMeter"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("VolumeMeter")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("AudioControls"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("AudioControls")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("MediaControls"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("MediaControls")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("SwitchScene"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("SwitchScene")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("ShowActive"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("ShowActive")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("Properties"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("Properties")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("Filters"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("Filters")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("TextInput"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("TextInput")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
-	label = new VerticalLabel(obs_module_text("SceneItems"));
+	label = new VerticalLabel(QT_UTF8(obs_module_text("SceneItems")));
 	label->setStyleSheet("font-weight: bold;");
 	mainLayout->addWidget(label, 0, idx++, Qt::AlignCenter);
 
@@ -141,7 +141,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
 
-	auto addButton = new QPushButton(obs_module_text("Add"));
+	auto addButton = new QPushButton(QT_UTF8(obs_module_text("Add")));
 	connect(addButton, &QPushButton::clicked, [this]() { AddClicked(); });
 	mainLayout->addWidget(addButton, 1, idx++, Qt::AlignCenter);
 
@@ -163,11 +163,58 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	scrollArea->setWidget(widget);
 	scrollArea->setWidgetResizable(true);
 
-	auto closeButton = new QPushButton(obs_module_text("Close"));
-	auto deleteButton = new QPushButton(obs_module_text("Delete"));
-
+	auto closeButton = new QPushButton(QT_UTF8(obs_module_text("Close")));
+	auto deleteButton = new QPushButton(QT_UTF8(obs_module_text("Delete")));
+	auto ltCheckBox = new QCheckBox(QT_UTF8("⌜"));
+	ltCheckBox->setChecked(parent->corner(Qt::TopLeftCorner) ==
+			       Qt::LeftDockWidgetArea);
+	connect(ltCheckBox, &QCheckBox::stateChanged, [ltCheckBox]() {
+		auto main_window = static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
+		main_window->setCorner(Qt::TopLeftCorner,
+				       ltCheckBox->isChecked()
+					       ? Qt::LeftDockWidgetArea
+					       : Qt::TopDockWidgetArea);
+	});
+	auto rtCheckBox = new QCheckBox(QT_UTF8("⌝"));
+	rtCheckBox->setChecked(parent->corner(Qt::TopRightCorner) ==
+			       Qt::RightDockWidgetArea);
+	connect(rtCheckBox, &QCheckBox::stateChanged, [rtCheckBox]() {
+		auto main_window = static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
+		main_window->setCorner(Qt::TopRightCorner,
+				       rtCheckBox->isChecked()
+					       ? Qt::RightDockWidgetArea
+					       : Qt::TopDockWidgetArea);
+	});
+	auto rbCheckBox = new QCheckBox(QT_UTF8("⌟"));
+	rbCheckBox->setChecked(parent->corner(Qt::BottomRightCorner) ==
+			       Qt::RightDockWidgetArea);
+	connect(rbCheckBox, &QCheckBox::stateChanged, [rbCheckBox]() {
+		auto main_window = static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
+		main_window->setCorner(Qt::BottomRightCorner,
+				       rbCheckBox->isChecked()
+					       ? Qt::RightDockWidgetArea
+					       : Qt::BottomDockWidgetArea);
+	});
+	auto lbCheckBox = new QCheckBox(QT_UTF8("⌞"));
+	lbCheckBox->setChecked(parent->corner(Qt::BottomLeftCorner) ==
+			       Qt::LeftDockWidgetArea);
+	connect(lbCheckBox, &QCheckBox::stateChanged, [lbCheckBox]() {
+		auto main_window = static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
+		main_window->setCorner(Qt::BottomLeftCorner,
+				       lbCheckBox->isChecked()
+					       ? Qt::LeftDockWidgetArea
+					       : Qt::BottomDockWidgetArea);
+	});
 	auto bottomLayout = new QHBoxLayout;
 	bottomLayout->addWidget(deleteButton, 0, Qt::AlignLeft);
+	bottomLayout->addWidget(ltCheckBox, 0, Qt::AlignCenter);
+	bottomLayout->addWidget(rtCheckBox, 0, Qt::AlignCenter);
+	bottomLayout->addWidget(rbCheckBox, 0, Qt::AlignCenter);
+	bottomLayout->addWidget(lbCheckBox, 0, Qt::AlignCenter);
 	bottomLayout->addWidget(closeButton, 0, Qt::AlignRight);
 
 	connect(deleteButton, &QPushButton::clicked,
@@ -180,7 +227,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	vlayout->addLayout(bottomLayout);
 	setLayout(vlayout);
 
-	setWindowTitle(obs_module_text("SourceDocks"));
+	setWindowTitle(QT_UTF8(obs_module_text("SourceDocks")));
 	setSizeGripEnabled(true);
 
 	setMinimumSize(200, 200);
@@ -197,20 +244,29 @@ QMainWindow *GetSourceWindowByTitle(const QString window_name)
 			return it;
 		}
 	}
-
-	auto main_window = new QMainWindow();
-	main_window->setWindowTitle(window_name);
-	const auto label = new QLabel(main_window);
+	const auto main_window =
+		static_cast<QMainWindow *>(obs_frontend_get_main_window());
+	auto window = new QMainWindow();
+	window->setWindowTitle(window_name);
+	const auto label = new QLabel(window);
 	label->setText("▣");
-	const auto w = new QWidget(main_window);
+	const auto w = new QWidget(window);
 	w->setFixedSize(30, 30);
 	const auto l = new QHBoxLayout();
 	l->addWidget(label);
 	w->setLayout(l);
-	main_window->setCentralWidget(w);
-	main_window->show();
-	source_windows.push_back(main_window);
-	return main_window;
+	window->setCentralWidget(w);
+	window->setCorner(Qt::TopLeftCorner,
+			  main_window->corner(Qt::TopLeftCorner));
+	window->setCorner(Qt::TopRightCorner,
+			  main_window->corner(Qt::TopRightCorner));
+	window->setCorner(Qt::BottomRightCorner,
+			  main_window->corner(Qt::BottomRightCorner));
+	window->setCorner(Qt::BottomLeftCorner,
+			  main_window->corner(Qt::BottomLeftCorner));
+	window->show();
+	source_windows.push_back(window);
+	return window;
 }
 
 void SourceDockSettingsDialog::AddClicked()
@@ -318,10 +374,9 @@ void SourceDockSettingsDialog::RefreshTable()
 		label = new QLabel(t);
 		mainLayout->addWidget(label, row, col++);
 
-		label = new QLabel(
-			parent == obs_frontend_get_main_window()
-				? ""
-				: parent->windowTitle());
+		label = new QLabel(parent == obs_frontend_get_main_window()
+					   ? ""
+					   : parent->windowTitle());
 		mainLayout->addWidget(label, row, col++);
 
 		dock = it;

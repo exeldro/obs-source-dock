@@ -95,6 +95,18 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 		}
 		obs_data_set_array(obj, "windows", windows);
 		obs_data_array_release(windows);
+		obs_data_set_bool(obj, "corner_tl",
+				  main_window->corner(Qt::TopLeftCorner) ==
+					  Qt::LeftDockWidgetArea);
+		obs_data_set_bool(obj, "corner_tr",
+				  main_window->corner(Qt::TopRightCorner) ==
+					  Qt::RightDockWidgetArea);
+		obs_data_set_bool(obj, "corner_br",
+				  main_window->corner(Qt::BottomRightCorner) ==
+					  Qt::RightDockWidgetArea);
+		obs_data_set_bool(obj, "corner_bl",
+				  main_window->corner(Qt::BottomLeftCorner) ==
+					  Qt::LeftDockWidgetArea);
 		obs_data_set_obj(save_data, "source-dock", obj);
 
 		obs_data_release(obj);
@@ -107,6 +119,26 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 
 		obs_data_t *obj = obs_data_get_obj(save_data, "source-dock");
 		if (obj) {
+			main_window->setCorner(Qt::TopLeftCorner,
+					       obs_data_get_bool(obj,
+								 "corner_tl")
+						       ? Qt::LeftDockWidgetArea
+						       : Qt::TopDockWidgetArea);
+			main_window->setCorner(Qt::TopRightCorner,
+					       obs_data_get_bool(obj,
+								 "corner_tr")
+						       ? Qt::RightDockWidgetArea
+						       : Qt::TopDockWidgetArea);
+			main_window->setCorner(
+				Qt::BottomRightCorner,
+				obs_data_get_bool(obj, "corner_br")
+					? Qt::RightDockWidgetArea
+					: Qt::BottomDockWidgetArea);
+			main_window->setCorner(
+				Qt::BottomLeftCorner,
+				obs_data_get_bool(obj, "corner_bl")
+					? Qt::LeftDockWidgetArea
+					: Qt::BottomDockWidgetArea);
 			obs_frontend_push_ui_translation(obs_module_get_string);
 			obs_data_array_t *docks =
 				obs_data_get_array(obj, "docks");
