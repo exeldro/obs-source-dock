@@ -13,6 +13,7 @@
 #include "media-control.hpp"
 #include "source-dock-settings.hpp"
 #include "version.h"
+#include "graphics/matrix4.h"
 
 #define QT_UTF8(str) QString::fromUtf8(str)
 #define QT_TO_UTF8(str) str.toUtf8().constData()
@@ -814,10 +815,63 @@ static int TranslateQtMouseEventModifiers(QMouseEvent *event)
 	return modifiers;
 }
 
+static bool CloseFloat(float a, float b, float epsilon = 0.01)
+{
+	using std::abs;
+	return abs(a - b) <= epsilon;
+}
+
+struct click_event {
+	int32_t x;
+	int32_t y;
+	uint32_t modifiers;
+	int32_t button;
+	bool mouseUp;
+	uint32_t clickCount;
+};
+
+static bool HandleSceneMouseClickEvent(obs_scene_t *scene,
+				       obs_sceneitem_t *item, void *data)
+{
+	auto click_event = static_cast<struct click_event *>(data);
+
+	matrix4 transform;
+	matrix4 invTransform;
+	vec3 transformedPos;
+	vec3 pos3;
+	vec3 pos3_;
+
+	vec3_set(&pos3, click_event->x, click_event->y, 0.0f);
+
+	obs_sceneitem_get_box_transform(item, &transform);
+
+	matrix4_inv(&invTransform, &transform);
+	vec3_transform(&transformedPos, &pos3, &invTransform);
+	vec3_transform(&pos3_, &transformedPos, &transform);
+
+	if (click_event->mouseUp ||
+	    (CloseFloat(pos3.x, pos3_.x) && CloseFloat(pos3.y, pos3_.y) &&
+	     transformedPos.x >= 0.0f && transformedPos.x <= 1.0f &&
+	     transformedPos.y >= 0.0f && transformedPos.y <= 1.0f)) {
+		auto source = obs_sceneitem_get_source(item);
+		obs_mouse_event mouseEvent{};
+		mouseEvent.x =
+			transformedPos.x * obs_source_get_base_width(source);
+		mouseEvent.y =
+			transformedPos.y * obs_source_get_base_height(source);
+		mouseEvent.modifiers = click_event->modifiers;
+		obs_source_send_mouse_click(source, &mouseEvent,
+					    click_event->button,
+					    click_event->mouseUp,
+					    click_event->clickCount);
+	}
+	return true;
+}
+
 bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 {
 	bool mouseUp = event->type() == QEvent::MouseButtonRelease;
-	int clickCount = 1;
+	uint32_t clickCount = 1;
 	if (event->type() == QEvent::MouseButtonDblClick)
 		clickCount = 2;
 
@@ -846,24 +900,79 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 	//if (event->flags().testFlag(Qt::MouseEventCreatedDoubleClick))
 	//	clickCount = 2;
 
-	bool insideSource = GetSourceRelativeXY(event->x(), event->y(),
-						mouseEvent.x, mouseEvent.y);
+	const bool insideSource = GetSourceRelativeXY(
+		event->x(), event->y(), mouseEvent.x, mouseEvent.y);
 
 	if (mouseUp || insideSource)
 		obs_source_send_mouse_click(source, &mouseEvent, button,
 					    mouseUp, clickCount);
 
-	if (mouseUp && switch_scene_enabled) {
-		if (obs_frontend_preview_program_mode_active()) {
-			obs_frontend_set_current_preview_scene(source);
-		} else {
+	if (switch_scene_enabled) {
+		if (mouseUp) {
+			if (obs_frontend_preview_program_mode_active()) {
+				obs_frontend_set_current_preview_scene(source);
+			} else {
+				obs_frontend_set_current_scene(source);
+			}
+		} else if (clickCount == 2 &&
+			   obs_frontend_preview_program_mode_active()) {
 			obs_frontend_set_current_scene(source);
 		}
-	} else if (switch_scene_enabled && clickCount == 2 &&
-		   obs_frontend_preview_program_mode_active()) {
-		obs_frontend_set_current_scene(source);
+	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
+		if (mouseUp || insideSource) {
+			click_event ce{mouseEvent.x,
+				       mouseEvent.y,
+				       mouseEvent.modifiers,
+				       button,
+				       mouseUp,
+				       clickCount};
+			obs_scene_enum_items(scene, HandleSceneMouseClickEvent,
+					     &ce);
+		}
 	}
 
+	return true;
+}
+
+struct move_event {
+	int32_t x;
+	int32_t y;
+	uint32_t modifiers;
+	bool mouseLeave;
+};
+
+static bool HandleSceneMouseMoveEvent(obs_scene_t *scene, obs_sceneitem_t *item,
+				      void *data)
+{
+	auto move_event = static_cast<struct move_event *>(data);
+
+	matrix4 transform{};
+	matrix4 invTransform{};
+	vec3 transformedPos{};
+	vec3 pos3{};
+	vec3 pos3_{};
+
+	vec3_set(&pos3, move_event->x, move_event->y, 0.0f);
+
+	obs_sceneitem_get_box_transform(item, &transform);
+
+	matrix4_inv(&invTransform, &transform);
+	vec3_transform(&transformedPos, &pos3, &invTransform);
+	vec3_transform(&pos3_, &transformedPos, &transform);
+
+	if (CloseFloat(pos3.x, pos3_.x) && CloseFloat(pos3.y, pos3_.y) &&
+	    transformedPos.x >= 0.0f && transformedPos.x <= 1.0f &&
+	    transformedPos.y >= 0.0f && transformedPos.y <= 1.0f) {
+		auto source = obs_sceneitem_get_source(item);
+		obs_mouse_event mouseEvent{};
+		mouseEvent.x =
+			transformedPos.x * obs_source_get_base_width(source);
+		mouseEvent.y =
+			transformedPos.y * obs_source_get_base_height(source);
+		mouseEvent.modifiers = move_event->modifiers;
+		obs_source_send_mouse_move(source, &mouseEvent,
+					   move_event->mouseLeave);
+	}
 	return true;
 }
 
@@ -880,7 +989,56 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 	}
 
 	obs_source_send_mouse_move(source, &mouseEvent, mouseLeave);
+	if (obs_scene_t *scene = obs_scene_from_source(source)) {
+		move_event ce{mouseEvent.x, mouseEvent.y, mouseEvent.modifiers,
+			      mouseLeave};
+		obs_scene_enum_items(scene, HandleSceneMouseMoveEvent, &ce);
+	}
 
+	return true;
+}
+
+struct wheel_event {
+	int32_t x;
+	int32_t y;
+	uint32_t modifiers;
+	int xDelta;
+	int yDelta;
+};
+
+static bool HandleSceneMouseWheelEvent(obs_scene_t *scene,
+				       obs_sceneitem_t *item, void *data)
+{
+	auto wheel_event = static_cast<struct wheel_event *>(data);
+
+	matrix4 transform{};
+	matrix4 invTransform{};
+	vec3 transformedPos{};
+	vec3 pos3{};
+	vec3 pos3_{};
+
+	vec3_set(&pos3, wheel_event->x, wheel_event->y, 0.0f);
+
+	obs_sceneitem_get_box_transform(item, &transform);
+
+	matrix4_inv(&invTransform, &transform);
+	vec3_transform(&transformedPos, &pos3, &invTransform);
+	vec3_transform(&pos3_, &transformedPos, &transform);
+
+	if (CloseFloat(pos3.x, pos3_.x) && CloseFloat(pos3.y, pos3_.y) &&
+	    transformedPos.x >= 0.0f && transformedPos.x <= 1.0f &&
+	    transformedPos.y >= 0.0f && transformedPos.y <= 1.0f) {
+		auto source = obs_sceneitem_get_source(item);
+		obs_mouse_event mouseEvent{};
+		mouseEvent.x =
+			transformedPos.x * obs_source_get_base_width(source);
+		mouseEvent.y =
+			transformedPos.y * obs_source_get_base_height(source);
+		mouseEvent.modifiers = wheel_event->modifiers;
+		obs_source_send_mouse_wheel(source, &mouseEvent,
+					    wheel_event->xDelta,
+					    wheel_event->yDelta);
+	}
 	return true;
 }
 
@@ -918,6 +1076,12 @@ bool SourceDock::HandleMouseWheelEvent(QWheelEvent *event)
 	if (GetSourceRelativeXY(x, y, mouseEvent.x, mouseEvent.y)) {
 		obs_source_send_mouse_wheel(source, &mouseEvent, xDelta,
 					    yDelta);
+		if (obs_scene_t *scene = obs_scene_from_source(source)) {
+			wheel_event ce{mouseEvent.x, mouseEvent.y,
+				       mouseEvent.modifiers, xDelta, yDelta};
+			obs_scene_enum_items(scene, HandleSceneMouseWheelEvent,
+					     &ce);
+		}
 	}
 
 	return true;
@@ -929,6 +1093,19 @@ bool SourceDock::HandleFocusEvent(QFocusEvent *event)
 
 	obs_source_send_focus(source, focus);
 
+	return true;
+}
+struct key_event {
+	struct obs_key_event keyEvent;
+	bool keyUp;
+};
+
+bool HandleSceneKeyEvent(obs_scene_t *scene, obs_sceneitem_t *item, void *data)
+{
+	auto key_event = static_cast<struct key_event *>(data);
+	const auto source = obs_sceneitem_get_source(item);
+	obs_source_send_key_click(source, &key_event->keyEvent,
+				  key_event->keyUp);
 	return true;
 }
 
@@ -946,6 +1123,10 @@ bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 	bool keyUp = event->type() == QEvent::KeyRelease;
 
 	obs_source_send_key_click(source, &keyEvent, keyUp);
+	if (obs_scene_t *scene = obs_scene_from_source(source)) {
+		key_event ce{keyEvent, keyUp};
+		obs_scene_enum_items(scene, HandleSceneKeyEvent, &ce);
+	}
 
 	return true;
 }
@@ -1017,6 +1198,7 @@ void SourceDock::EnableVolMeter()
 
 	mainLayout->addWidget(volMeter);
 }
+
 void SourceDock::DisableVolMeter()
 {
 	if (!obs_volmeter)
