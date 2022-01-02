@@ -989,7 +989,9 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 	}
 
 	obs_source_send_mouse_move(source, &mouseEvent, mouseLeave);
-	if (obs_scene_t *scene = obs_scene_from_source(source)) {
+	if (switch_scene_enabled) {
+
+	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
 		move_event ce{mouseEvent.x, mouseEvent.y, mouseEvent.modifiers,
 			      mouseLeave};
 		obs_scene_enum_items(scene, HandleSceneMouseMoveEvent, &ce);
@@ -1076,7 +1078,9 @@ bool SourceDock::HandleMouseWheelEvent(QWheelEvent *event)
 	if (GetSourceRelativeXY(x, y, mouseEvent.x, mouseEvent.y)) {
 		obs_source_send_mouse_wheel(source, &mouseEvent, xDelta,
 					    yDelta);
-		if (obs_scene_t *scene = obs_scene_from_source(source)) {
+		if (switch_scene_enabled) {
+
+		} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
 			wheel_event ce{mouseEvent.x, mouseEvent.y,
 				       mouseEvent.modifiers, xDelta, yDelta};
 			obs_scene_enum_items(scene, HandleSceneMouseWheelEvent,
@@ -1123,7 +1127,8 @@ bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 	bool keyUp = event->type() == QEvent::KeyRelease;
 
 	obs_source_send_key_click(source, &keyEvent, keyUp);
-	if (obs_scene_t *scene = obs_scene_from_source(source)) {
+	if (switch_scene_enabled) {
+	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
 		key_event ce{keyEvent, keyUp};
 		obs_scene_enum_items(scene, HandleSceneKeyEvent, &ce);
 	}
