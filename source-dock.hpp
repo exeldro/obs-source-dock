@@ -77,6 +77,11 @@ private:
 	OBSSource source;
 	std::unique_ptr<OBSEventFilter> eventFilter;
 	QAction *action;
+	float zoom;
+	float scrollX;
+	float scrollY;
+	int scrollingFromX;
+	int scrollingFromY;
 
 	OBSQTDisplay *preview;
 	VolumeMeter *volMeter;
@@ -100,6 +105,8 @@ private:
 	OBSSignal removeSignal;
 	OBSSignal reorderSignal;
 	OBSSignal refreshSignal;
+
+
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
 
@@ -181,6 +188,13 @@ public:
 	void EnableTextInput();
 	void DisableTextInput();
 	bool TextInputEnabled();
+
+	float GetZoom() const { return zoom; }
+	void SetZoom(float zoom);
+	float GetScrollX() { return scrollX; }
+	void SetScrollX(float scroll);
+	float GetScrollY() { return scrollY; }
+	void SetScrollY(float scroll);
 };
 
 inline std::list<SourceDock *> source_docks;

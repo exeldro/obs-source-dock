@@ -74,6 +74,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_int(dock, "dockarea",
 					 p->dockWidgetArea(it));
 			obs_data_set_bool(dock, "floating", it->isFloating());
+			obs_data_set_double(dock, "zoom", it->GetZoom());
+			obs_data_set_double(dock, "scrollx", it->GetScrollX());
+			obs_data_set_double(dock, "scrolly", it->GetScrollY());
 			obs_data_array_push_back(docks, dock);
 			obs_data_release(dock);
 		}
@@ -255,6 +258,17 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							tmp->restoreGeometry(
 								QByteArray::fromBase64(QByteArray(
 									geometry)));
+						tmp->SetZoom(
+							obs_data_get_double(
+								dock, "zoom"));
+						tmp->SetScrollX(
+							obs_data_get_double(
+								dock,
+								"scrollx"));
+						tmp->SetScrollY(
+							obs_data_get_double(
+								dock,
+								"scrolly"));
 					}
 					obs_data_release(dock);
 				}
@@ -471,6 +485,7 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  preview(nullptr),
 	  volMeter(nullptr),
 	  obs_volmeter(nullptr),
+	  mainLayout(new QVBoxLayout(this)),
 	  volControl(nullptr),
 	  mediaControl(nullptr),
 	  switch_scene_enabled(false),
@@ -479,15 +494,18 @@ SourceDock::SourceDock(OBSSource source_, QWidget *parent)
 	  propertiesButton(nullptr),
 	  filtersButton(nullptr),
 	  textInput(nullptr),
-	  action(nullptr)
+	  action(nullptr),
+	  zoom(1.0f),
+	  scrollX(0.5f),
+	  scrollY(0.5f),
+	  scrollingFromX(0),
+	  scrollingFromY(0)
 {
 	setFeatures(AllDockWidgetFeatures);
 	setWindowTitle(QT_UTF8(obs_source_get_name(source)));
 	setObjectName(QT_UTF8(obs_source_get_name(source)));
 	setFloating(true);
 	hide();
-
-	mainLayout = new QVBoxLayout(this);
 
 	auto *dockWidgetContents = new QWidget;
 	dockWidgetContents->setObjectName(QStringLiteral("contextContainer"));
@@ -550,16 +568,21 @@ void SourceDock::DrawPreview(void *data, uint32_t cx, uint32_t cy)
 	float scale;
 
 	GetScaleAndCenterPos(sourceCX, sourceCY, cx, cy, x, y, scale);
+	auto newCX = scale * float(sourceCX);
+	auto newCY = scale * float(sourceCY);
 
-	int newCX = int(scale * float(sourceCX));
-	int newCY = int(scale * float(sourceCY));
-
+	auto extraCx = (window->zoom - 1.0f) * newCX;
+	auto extraCy = (window->zoom - 1.0f) * newCY;
+	int newCx = newCX * window->zoom;
+	int newCy = newCY * window->zoom;
+	x -= extraCx * window->scrollX;
+	y -= extraCy * window->scrollY;
 	gs_viewport_push();
 	gs_projection_push();
 	const bool previous = gs_set_linear_srgb(true);
 
 	gs_ortho(0.0f, float(sourceCX), 0.0f, float(sourceCY), -100.0f, 100.0f);
-	gs_set_viewport(x, y, newCX, newCY);
+	gs_set_viewport(x, y, newCx, newCy);
 	obs_source_video_render(window->source);
 
 	gs_set_linear_srgb(previous);
@@ -721,12 +744,20 @@ bool SourceDock::GetSourceRelativeXY(int mouseX, int mouseY, int &relX,
 	GetScaleAndCenterPos(sourceCX, sourceCY, size.width(), size.height(), x,
 			     y, scale);
 
+	auto newCX = scale * float(sourceCX);
+	auto newCY = scale * float(sourceCY);
+
+	auto extraCx = (zoom - 1.0f) * newCX;
+	auto extraCy = (zoom - 1.0f) * newCY;
+
+	scale *= zoom;
+
 	if (x > 0) {
-		relX = int(float(mouseXscaled - x) / scale);
-		relY = int(float(mouseYscaled / scale));
+		relX = int(float(mouseXscaled - x + extraCx * scrollX) / scale);
+		relY = int(float(mouseYscaled + extraCy * scrollY) / scale);
 	} else {
-		relX = int(float(mouseXscaled / scale));
-		relY = int(float(mouseYscaled - y) / scale);
+		relX = int(float(mouseXscaled + extraCx * scrollX) / scale);
+		relY = int(float(mouseYscaled - y + extraCy * scrollY) / scale);
 	}
 
 	// Confirm mouse is inside the source
@@ -870,7 +901,12 @@ static bool HandleSceneMouseClickEvent(obs_scene_t *scene,
 
 bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 {
-	bool mouseUp = event->type() == QEvent::MouseButtonRelease;
+	const bool mouseUp = event->type() == QEvent::MouseButtonRelease;
+	if (!mouseUp && event->button() == Qt::LeftButton &&
+	    event->modifiers().testFlag(Qt::ControlModifier)) {
+		scrollingFromX = event->x();
+		scrollingFromY = event->y();
+	}
 	uint32_t clickCount = 1;
 	if (event->type() == QEvent::MouseButtonDblClick)
 		clickCount = 2;
@@ -918,16 +954,18 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 			   obs_frontend_preview_program_mode_active()) {
 			obs_frontend_set_current_scene(source);
 		}
-	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
-		if (mouseUp || insideSource) {
-			click_event ce{mouseEvent.x,
-				       mouseEvent.y,
-				       mouseEvent.modifiers,
-				       button,
-				       mouseUp,
-				       clickCount};
-			obs_scene_enum_items(scene, HandleSceneMouseClickEvent,
-					     &ce);
+	} else {
+		if (obs_scene_t *scene = obs_scene_from_source(source)) {
+			if (mouseUp || insideSource) {
+				click_event ce{mouseEvent.x,
+					       mouseEvent.y,
+					       mouseEvent.modifiers,
+					       button,
+					       mouseUp,
+					       clickCount};
+				obs_scene_enum_items(
+					scene, HandleSceneMouseClickEvent, &ce);
+			}
 		}
 	}
 
@@ -978,6 +1016,25 @@ static bool HandleSceneMouseMoveEvent(obs_scene_t *scene, obs_sceneitem_t *item,
 
 bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 {
+	if (event->buttons() == Qt::LeftButton &&
+	    event->modifiers().testFlag(Qt::ControlModifier)) {
+
+		QSize size = preview->size() * preview->devicePixelRatioF();
+		scrollX -= float(event->x() - scrollingFromX) / size.width();
+		scrollY -= float(event->y() - scrollingFromY) / size.height();
+		if (scrollX < 0.0f)
+			scrollX = 0.0;
+		if (scrollX > 1.0f)
+			scrollX = 1.0f;
+		if (scrollY < 0.0f)
+			scrollY = 0.0;
+		if (scrollY > 1.0f)
+			scrollY = 1.0f;
+		scrollingFromX = event->x();
+		scrollingFromY = event->y();
+		return true;
+	}
+
 	struct obs_mouse_event mouseEvent = {};
 
 	bool mouseLeave = event->type() == QEvent::Leave;
@@ -989,12 +1046,13 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 	}
 
 	obs_source_send_mouse_move(source, &mouseEvent, mouseLeave);
-	if (switch_scene_enabled) {
-
-	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
-		move_event ce{mouseEvent.x, mouseEvent.y, mouseEvent.modifiers,
-			      mouseLeave};
-		obs_scene_enum_items(scene, HandleSceneMouseMoveEvent, &ce);
+	if (!switch_scene_enabled) {
+		if (obs_scene_t *scene = obs_scene_from_source(source)) {
+			move_event ce{mouseEvent.x, mouseEvent.y,
+				      mouseEvent.modifiers, mouseLeave};
+			obs_scene_enum_items(scene, HandleSceneMouseMoveEvent,
+					     &ce);
+		}
 	}
 
 	return true;
@@ -1075,7 +1133,19 @@ bool SourceDock::HandleMouseWheelEvent(QWheelEvent *event)
 	const int y = event->y();
 #endif
 
-	if (GetSourceRelativeXY(x, y, mouseEvent.x, mouseEvent.y)) {
+	const bool insideSource =
+		GetSourceRelativeXY(x, y, mouseEvent.x, mouseEvent.y);
+	if ((QGuiApplication::keyboardModifiers() & Qt::ControlModifier) &&
+	    yDelta != 0) {
+		const auto factor = 1.0f + (0.0008f * yDelta);
+
+		zoom *= factor;
+		if (zoom < 1.0f)
+			zoom = 1.0f;
+		if (zoom > 100.0f)
+			zoom = 100.0f;
+
+	} else if (insideSource) {
 		obs_source_send_mouse_wheel(source, &mouseEvent, xDelta,
 					    yDelta);
 		if (switch_scene_enabled) {
@@ -1127,10 +1197,11 @@ bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 	bool keyUp = event->type() == QEvent::KeyRelease;
 
 	obs_source_send_key_click(source, &keyEvent, keyUp);
-	if (switch_scene_enabled) {
-	} else if (obs_scene_t *scene = obs_scene_from_source(source)) {
-		key_event ce{keyEvent, keyUp};
-		obs_scene_enum_items(scene, HandleSceneKeyEvent, &ce);
+	if (!switch_scene_enabled) {
+		if (obs_scene_t *scene = obs_scene_from_source(source)) {
+			key_event ce{keyEvent, keyUp};
+			obs_scene_enum_items(scene, HandleSceneKeyEvent, &ce);
+		}
 	}
 
 	return true;
@@ -1644,6 +1715,27 @@ OBSSource SourceDock::GetSource()
 void SourceDock::setAction(QAction *a)
 {
 	action = a;
+}
+
+void SourceDock::SetZoom(float zoom)
+{
+	if (zoom < 1.0f)
+		return;
+	this->zoom = zoom;
+}
+
+void SourceDock::SetScrollX(float scroll)
+{
+	if (scroll < 0.0f || scroll > 1.0f)
+		return;
+	scrollX = scroll;
+}
+
+void SourceDock::SetScrollY(float scroll)
+{
+	if (scroll < 0.0f || scroll > 1.0f)
+		return;
+	scrollY = scroll;
 }
 
 LockedCheckBox::LockedCheckBox() {}
