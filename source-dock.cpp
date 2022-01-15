@@ -1743,8 +1743,7 @@ void SourceDock::EnableTextInput()
 
 	textInput = new QPlainTextEdit;
 	textInput->setObjectName(QStringLiteral("textInput"));
-	if (!source)
-		return;
+
 	if (auto *settings = source ? obs_source_get_settings(source)
 				    : nullptr) {
 		textInput->setPlainText(
