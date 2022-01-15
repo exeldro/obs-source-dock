@@ -82,6 +82,7 @@ private:
 	float scrollY;
 	int scrollingFromX;
 	int scrollingFromY;
+	bool selected;
 
 	OBSQTDisplay *preview;
 	VolumeMeter *volMeter;
@@ -105,8 +106,6 @@ private:
 	OBSSignal removeSignal;
 	OBSSignal reorderSignal;
 	OBSSignal refreshSignal;
-
-
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
 
@@ -141,14 +140,18 @@ private slots:
 	void RefreshItems();
 
 public:
-	SourceDock(OBSSource source, QWidget *parent = nullptr);
+	SourceDock(QString name, bool selected, QWidget *parent = nullptr);
 	~SourceDock();
+
+	void SetSource(const OBSSource source_);
+	OBSSource GetSource();
+
+	bool GetSelected() { return selected; }
 
 	void SetActive(int active);
 
 	void setAction(QAction *action);
 
-	OBSSource GetSource();
 	void EnablePreview();
 	void DisablePreview();
 	bool PreviewEnabled();
@@ -158,6 +161,7 @@ public:
 	bool VolMeterEnabled();
 
 	void EnableVolControls();
+	void UpdateVolControls();
 	void DisableVolControls();
 	bool VolControlsEnabled();
 

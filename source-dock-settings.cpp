@@ -98,6 +98,8 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	completer->setFilterMode(Qt::MatchContains);
 	completer->setCompletionMode(QCompleter::PopupCompletion);
 	sourceCombo->addItem("", QByteArray(""));
+	sourceCombo->addItem(QT_UTF8(obs_module_text("CurrentSelectedSource")),
+			     QByteArray("CurrentSelectedSource"));
 	obs_enum_scenes(AddSource, sourceCombo);
 	obs_enum_sources(AddSource, sourceCombo);
 	mainLayout->addWidget(sourceCombo, 1, idx++);
@@ -115,28 +117,20 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	previewCheckBox->setChecked(true);
 	mainLayout->addWidget(previewCheckBox, 1, idx++);
 
-	volMeterCheckBox->setChecked(true);
 	mainLayout->addWidget(volMeterCheckBox, 1, idx++);
 
-	volControlsCheckBox->setChecked(true);
 	mainLayout->addWidget(volControlsCheckBox, 1, idx++);
 
-	mediaControlsCheckBox->setChecked(true);
 	mainLayout->addWidget(mediaControlsCheckBox, 1, idx++);
 
-	switchSceneCheckBox->setChecked(true);
 	mainLayout->addWidget(switchSceneCheckBox, 1, idx++);
 
-	showActiveCheckBox->setChecked(true);
 	mainLayout->addWidget(showActiveCheckBox, 1, idx++);
 
-	propertiesCheckBox->setChecked(true);
 	mainLayout->addWidget(propertiesCheckBox, 1, idx++);
 
-	filtersCheckBox->setChecked(true);
 	mainLayout->addWidget(filtersCheckBox, 1, idx++);
 
-	textInputCheckBox->setChecked(true);
 	mainLayout->addWidget(textInputCheckBox, 1, idx++);
 
 	mainLayout->addWidget(sceneItemsCheckBox, 1, idx++);
@@ -269,6 +263,8 @@ QMainWindow *GetSourceWindowByTitle(const QString window_name)
 	return window;
 }
 
+void update_selected_source();
+
 void SourceDockSettingsDialog::AddClicked()
 {
 	const auto sn = sourceCombo->currentText();
@@ -281,20 +277,22 @@ void SourceDockSettingsDialog::AddClicked()
 	auto title = titleEdit->text();
 	if (title.isEmpty())
 		title = sn;
-	obs_source_t *source = obs_get_source_by_name(t3);
-	if (!source)
-		return;
+	obs_source_t *source = nullptr;
+	if (sourceCombo->currentIndex() != 1) {
+		source = obs_get_source_by_name(t3);
+		if (!source)
+			return;
+	}
 
-	QMainWindow *main_window = nullptr;
 	auto window_name = windowEdit->text();
-	main_window = GetSourceWindowByTitle(window_name);
+	QMainWindow *main_window = GetSourceWindowByTitle(window_name);
 	if (main_window == nullptr)
 		main_window = static_cast<QMainWindow *>(
 			obs_frontend_get_main_window());
 
-	auto *tmp = new SourceDock(source, main_window);
-	tmp->setWindowTitle(title);
-	tmp->setObjectName(title);
+	auto *tmp = new SourceDock(title, source == nullptr, main_window);
+	if (source)
+		tmp->SetSource(source);
 	if (previewCheckBox->isChecked())
 		tmp->EnablePreview();
 	if (volMeterCheckBox->isChecked())
@@ -329,8 +327,11 @@ void SourceDockSettingsDialog::AddClicked()
 	source_docks.push_back(tmp);
 	auto *a = static_cast<QAction *>(obs_frontend_add_dock(tmp));
 	tmp->setAction(a);
+	if (source)
+		obs_source_release(source);
+	else
+		update_selected_source();
 
-	obs_source_release(source);
 	RefreshTable();
 }
 
@@ -354,8 +355,7 @@ void SourceDockSettingsDialog::RefreshTable()
 	const auto window = windowEdit->text();
 	for (const auto &it : source_docks) {
 		if (!sourceName.isEmpty() &&
-		    !QString::fromUtf8(obs_source_get_name(it->GetSource()))
-			     .contains(sourceName, Qt::CaseInsensitive))
+		    !it->objectName().contains(sourceName, Qt::CaseInsensitive))
 			continue;
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
@@ -594,8 +594,9 @@ void SourceDockSettingsDialog::DeleteClicked()
 				++it;
 				continue;
 			}
-			if (sourceName !=
-			    obs_source_get_name((*it)->GetSource())) {
+			if (!(*it)->GetSelected() &&
+			    sourceName !=
+				    obs_source_get_name((*it)->GetSource())) {
 				++it;
 				continue;
 			}
