@@ -60,4 +60,5 @@ public:
 			      bool showTimeRemaining);
 	~MediaControl();
 	OBSWeakSource GetSource();
+	void SetSource(OBSWeakSource source);
 };

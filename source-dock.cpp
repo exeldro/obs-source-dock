@@ -331,12 +331,12 @@ void update_selected_source()
 	auto scene = obs_scene_from_source(previous_scene);
 	obs_source_t *selected_source = nullptr;
 	obs_scene_enum_items(scene, get_selected_source, &selected_source);
-	if (selected_source) {
-		for (const auto &it : source_docks) {
-			if (!it->GetSelected())
-				continue;
-			it->SetSource(selected_source);
-		}
+	if (!selected_source)
+		return;
+	for (const auto &it : source_docks) {
+		if (!it->GetSelected())
+			continue;
+		it->SetSource(selected_source);
 	}
 }
 
@@ -1466,9 +1466,7 @@ void SourceDock::EnableMediaControls()
 {
 	if (mediaControl != nullptr)
 		return;
-	uint32_t caps = obs_source_get_output_flags(source);
-	if ((caps & OBS_SOURCE_CONTROLLABLE_MEDIA) == 0)
-		return;
+
 	mediaControl = new MediaControl(OBSGetWeakRef(source), true, true);
 	mainLayout->addWidget(mediaControl);
 }
@@ -1829,6 +1827,9 @@ void SourceDock::SetSource(const OBSSource source_)
 		} else if (!textInput->toPlainText().isEmpty()) {
 			textInput->setPlainText("");
 		}
+	}
+	if (mediaControl) {
+		mediaControl->SetSource(OBSGetWeakRef(source));
 	}
 
 	if (!source)
