@@ -340,10 +340,27 @@ void update_selected_source()
 	}
 }
 
+void set_previous_scene_empty(void *p, calldata_t *calldata)
+{
+	if (!previous_scene)
+		return;
+	auto sh = obs_source_get_signal_handler(previous_scene);
+	if (sh) {
+		signal_handler_disconnect(sh, "item_select", item_select,
+					  nullptr);
+		signal_handler_disconnect(sh, "remove",
+					  set_previous_scene_empty, nullptr);
+		signal_handler_disconnect(sh, "destroy",
+					  set_previous_scene_empty, nullptr);
+	}
+	previous_scene = nullptr;
+}
+
 static void frontend_event(enum obs_frontend_event event, void *)
 {
 	if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CLEANUP ||
 	    event == OBS_FRONTEND_EVENT_EXIT) {
+		set_previous_scene_empty(nullptr, nullptr);
 		for (const auto &it : source_docks) {
 			it->close();
 			delete (it);
@@ -359,12 +376,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 		   event == OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED ||
 		   event == OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED) {
 		if (previous_scene) {
-			auto sh = obs_source_get_signal_handler(previous_scene);
-			if (sh) {
-				signal_handler_disconnect(sh, "item_select",
-							  item_select, nullptr);
-			}
-			previous_scene = nullptr;
+			set_previous_scene_empty(nullptr, nullptr);
 		}
 		if (obs_frontend_preview_program_mode_active()) {
 			auto *preview =
@@ -373,11 +385,19 @@ static void frontend_event(enum obs_frontend_event event, void *)
 				auto sh =
 					obs_source_get_signal_handler(preview);
 				if (sh) {
+					previous_scene = preview;
 					signal_handler_connect(sh,
 							       "item_select",
 							       item_select,
 							       nullptr);
-					previous_scene = preview;
+					signal_handler_connect(
+						sh, "remove",
+						set_previous_scene_empty,
+						nullptr);
+					signal_handler_connect(
+						sh, "destroy",
+						set_previous_scene_empty,
+						nullptr);
 				}
 			}
 
@@ -462,11 +482,19 @@ static void frontend_event(enum obs_frontend_event event, void *)
 			if (scene) {
 				auto sh = obs_source_get_signal_handler(scene);
 				if (sh) {
+					previous_scene = scene;
 					signal_handler_connect(sh,
 							       "item_select",
 							       item_select,
 							       nullptr);
-					previous_scene = scene;
+					signal_handler_connect(
+						sh, "remove",
+						set_previous_scene_empty,
+						nullptr);
+					signal_handler_connect(
+						sh, "destroy",
+						set_previous_scene_empty,
+						nullptr);
 				}
 				obs_source_release(scene);
 			}
@@ -1295,13 +1323,13 @@ void SourceDock::EnablePreview()
 		return;
 	preview = new OBSQTDisplay(this);
 	preview->setObjectName(QStringLiteral("preview"));
+	preview->setMinimumSize(QSize(24, 24));
 	QSizePolicy sizePolicy1(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	sizePolicy1.setHorizontalStretch(0);
 	sizePolicy1.setVerticalStretch(0);
 	sizePolicy1.setHeightForWidth(
 		preview->sizePolicy().hasHeightForWidth());
 	preview->setSizePolicy(sizePolicy1);
-	preview->setMinimumSize(QSize(24, 24));
 
 	preview->setMouseTracking(true);
 	preview->setFocusPolicy(Qt::StrongFocus);
