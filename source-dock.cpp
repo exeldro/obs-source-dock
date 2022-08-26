@@ -15,8 +15,12 @@
 #include "version.h"
 #include "graphics/matrix4.h"
 
+#ifndef QT_UTF8
 #define QT_UTF8(str) QString::fromUtf8(str)
+#endif
+#ifndef QT_TO_UTF8
 #define QT_TO_UTF8(str) str.toUtf8().constData()
+#endif
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Exeldro");
@@ -304,6 +308,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 
 static void item_select(void *p, calldata_t *calldata)
 {
+	UNUSED_PARAMETER(p);
 	auto item = (obs_sceneitem_t *)calldata_ptr(calldata, "item");
 	auto source = obs_sceneitem_get_source(item);
 	for (const auto &it : source_docks) {
@@ -317,6 +322,7 @@ obs_source_t *previous_scene = nullptr;
 
 bool get_selected_source(obs_scene_t *obs_scene, obs_sceneitem_t *item, void *p)
 {
+	UNUSED_PARAMETER(obs_scene);
 	if (!obs_sceneitem_selected(item))
 		return true;
 	auto source = obs_sceneitem_get_source(item);
@@ -342,6 +348,8 @@ void update_selected_source()
 
 void set_previous_scene_empty(void *p, calldata_t *calldata)
 {
+	UNUSED_PARAMETER(p);
+	UNUSED_PARAMETER(calldata);
 	if (!previous_scene)
 		return;
 	auto sh = obs_source_get_signal_handler(previous_scene);
@@ -420,6 +428,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 					preview,
 					[](obs_source_t *parent,
 					   obs_source_t *child, void *param) {
+						UNUSED_PARAMETER(parent);
 						auto m = static_cast<std::map<
 							obs_source_t *, int> *>(
 							param);
@@ -449,6 +458,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 					program,
 					[](obs_source_t *parent,
 					   obs_source_t *child, void *param) {
+						UNUSED_PARAMETER(parent);
 						auto m = static_cast<std::map<
 							obs_source_t *, int> *>(
 							param);
@@ -511,6 +521,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 
 static void source_remove(void *data, calldata_t *call_data)
 {
+	UNUSED_PARAMETER(data);
 	obs_source_t *source =
 		static_cast<obs_source_t *>(calldata_ptr(call_data, "source"));
 	for (auto it = source_docks.begin(); it != source_docks.end();) {
@@ -587,6 +598,7 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 	  scrollY(0.5f),
 	  scrollingFromX(0),
 	  scrollingFromY(0),
+	  selected(selected_),
 	  preview(nullptr),
 	  volMeter(nullptr),
 	  obs_volmeter(nullptr),
@@ -598,10 +610,10 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 	  sceneItems(nullptr),
 	  propertiesButton(nullptr),
 	  filtersButton(nullptr),
-	  textInput(nullptr),
-	  selected(selected_)
+	  textInput(nullptr)
 {
-	setFeatures(AllDockWidgetFeatures);
+	setFeatures(DockWidgetClosable | DockWidgetMovable |
+		    DockWidgetFloatable);
 	setWindowTitle(name);
 	setObjectName(name);
 	setFloating(true);
@@ -722,6 +734,7 @@ void SourceDock::OBSMute(void *data, calldata_t *call_data)
 
 void SourceDock::OBSActiveChanged(void *data, calldata_t *call_data)
 {
+	UNUSED_PARAMETER(call_data);
 	SourceDock *sourceDock = static_cast<SourceDock *>(data);
 	QMetaObject::invokeMethod(sourceDock, "ActiveChanged",
 				  Qt::QueuedConnection);
@@ -965,6 +978,7 @@ struct click_event {
 static bool HandleSceneMouseClickEvent(obs_scene_t *scene,
 				       obs_sceneitem_t *item, void *data)
 {
+	UNUSED_PARAMETER(scene);
 	auto click_event = static_cast<struct click_event *>(data);
 
 	matrix4 transform;
@@ -1005,8 +1019,8 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 	const bool mouseUp = event->type() == QEvent::MouseButtonRelease;
 	if (!mouseUp && event->button() == Qt::LeftButton &&
 	    event->modifiers().testFlag(Qt::ControlModifier)) {
-		scrollingFromX = event->x();
-		scrollingFromY = event->y();
+		scrollingFromX = event->pos().x();
+		scrollingFromY = event->pos().y();
 	}
 	uint32_t clickCount = 1;
 	if (event->type() == QEvent::MouseButtonDblClick)
@@ -1038,7 +1052,7 @@ bool SourceDock::HandleMouseClickEvent(QMouseEvent *event)
 	//	clickCount = 2;
 
 	const bool insideSource = GetSourceRelativeXY(
-		event->x(), event->y(), mouseEvent.x, mouseEvent.y);
+		event->pos().x(), event->pos().y(), mouseEvent.x, mouseEvent.y);
 
 	if (source && (mouseUp || insideSource))
 		obs_source_send_mouse_click(source, &mouseEvent, button,
@@ -1083,6 +1097,7 @@ struct move_event {
 static bool HandleSceneMouseMoveEvent(obs_scene_t *scene, obs_sceneitem_t *item,
 				      void *data)
 {
+	UNUSED_PARAMETER(scene);
 	auto move_event = static_cast<struct move_event *>(data);
 
 	matrix4 transform{};
@@ -1125,8 +1140,10 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 	    event->modifiers().testFlag(Qt::ControlModifier)) {
 
 		QSize size = preview->size() * preview->devicePixelRatioF();
-		scrollX -= float(event->x() - scrollingFromX) / size.width();
-		scrollY -= float(event->y() - scrollingFromY) / size.height();
+		scrollX -=
+			float(event->pos().x() - scrollingFromX) / size.width();
+		scrollY -= float(event->pos().y() - scrollingFromY) /
+			   size.height();
 		if (scrollX < 0.0f)
 			scrollX = 0.0;
 		if (scrollX > 1.0f)
@@ -1135,8 +1152,8 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 			scrollY = 0.0;
 		if (scrollY > 1.0f)
 			scrollY = 1.0f;
-		scrollingFromX = event->x();
-		scrollingFromY = event->y();
+		scrollingFromX = event->pos().x();
+		scrollingFromY = event->pos().y();
 		return true;
 	}
 
@@ -1146,7 +1163,8 @@ bool SourceDock::HandleMouseMoveEvent(QMouseEvent *event)
 
 	if (!mouseLeave) {
 		mouseEvent.modifiers = TranslateQtMouseEventModifiers(event);
-		mouseLeave = !GetSourceRelativeXY(event->x(), event->y(),
+		mouseLeave = !GetSourceRelativeXY(event->pos().x(),
+						  event->pos().y(),
 						  mouseEvent.x, mouseEvent.y);
 	}
 
@@ -1174,6 +1192,7 @@ struct wheel_event {
 static bool HandleSceneMouseWheelEvent(obs_scene_t *scene,
 				       obs_sceneitem_t *item, void *data)
 {
+	UNUSED_PARAMETER(scene);
 	auto wheel_event = static_cast<struct wheel_event *>(data);
 
 	matrix4 transform{};
@@ -1236,8 +1255,8 @@ bool SourceDock::HandleMouseWheelEvent(QWheelEvent *event)
 	const int x = position.x();
 	const int y = position.y();
 #else
-	const int x = event->x();
-	const int y = event->y();
+	const int x = event->pos().x();
+	const int y = event->pos().y();
 #endif
 
 	const bool insideSource =
@@ -1284,6 +1303,7 @@ struct key_event {
 
 bool HandleSceneKeyEvent(obs_scene_t *scene, obs_sceneitem_t *item, void *data)
 {
+	UNUSED_PARAMETER(scene);
 	auto key_event = static_cast<struct key_event *>(data);
 	const auto source = obs_sceneitem_get_source(item);
 	obs_source_send_key_click(source, &key_event->keyEvent,
@@ -1596,6 +1616,7 @@ void SourceDock::EnableSceneItems()
 	};
 
 	auto refreshItems = [](void *data, calldata_t *cd) {
+		UNUSED_PARAMETER(cd);
 		const auto dock = static_cast<SourceDock *>(data);
 		QMetaObject::invokeMethod(dock, "RefreshItems",
 					  Qt::QueuedConnection);
@@ -1642,6 +1663,7 @@ void SourceDock::RefreshItems()
 bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 			      void *data)
 {
+	UNUSED_PARAMETER(scene);
 	QGridLayout *layout = static_cast<QGridLayout *>(data);
 
 	auto source = obs_sceneitem_get_source(item);

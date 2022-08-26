@@ -3,9 +3,11 @@
 #include <QTimer>
 #include <obs.hpp>
 #include <qicon.h>
+#include <QLabel>
+#include <QPushButton>
 
 #include "media-slider.hpp"
-#include "../UI/qt-wrappers.hpp"
+
 
 class MediaControl : public QWidget {
 	Q_OBJECT

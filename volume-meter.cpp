@@ -1,6 +1,6 @@
 #include "volume-meter.hpp"
 
-#include "../../../libobs/util/platform.h"
+#include "util/platform.h"
 
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 

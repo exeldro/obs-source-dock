@@ -2,7 +2,7 @@
 
 #include <QStyleFactory>
 
-#include "../../slider-absoluteset-style.hpp"
+#include "slider-absoluteset-style.hpp"
 
 
 MediaSlider::MediaSlider(QWidget *parent) : QSlider(parent)
@@ -24,7 +24,7 @@ MediaSlider::MediaSlider(QWidget *parent) : QSlider(parent)
 
 void MediaSlider::mouseMoveEvent(QMouseEvent *event)
 {
-	int val = minimum() + ((maximum() - minimum()) * event->x()) / width();
+	int val = minimum() + ((maximum() - minimum()) * event->pos().x()) / width();
 
 	if (val > maximum())
 		val = maximum();
