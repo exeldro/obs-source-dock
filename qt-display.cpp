@@ -1,23 +1,21 @@
 #include "qt-display.hpp"
+#include "display-helpers.hpp"
 #include <QWindow>
 #include <QScreen>
 #include <QResizeEvent>
 #include <QShowEvent>
-#include <QGuiApplication>
 
 #include <obs-config.h>
 
-#if !defined(_WIN32) && !defined(__APPLE__)
-#include <obs-nix-platform.h>
-#include <qpa/qplatformnativeinterface.h>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #endif
 
-static inline QSize GetPixelSize(QWidget *widget)
-{
-	return widget->size() * widget->devicePixelRatioF();
-}
-
 #ifdef ENABLE_WAYLAND
+#include <obs-nix-platform.h>
+#include <qpa/qplatformnativeinterface.h>
+#include <QGuiApplication>
 
 class SurfaceEventFilter : public QObject {
 	OBSQTDisplay *display;
@@ -36,14 +34,21 @@ protected:
 		case QEvent::PlatformSurface:
 			surfaceEvent =
 				static_cast<QPlatformSurfaceEvent *>(event);
-			if (surfaceEvent->surfaceEventType() !=
-			    QPlatformSurfaceEvent::SurfaceCreated)
-				return result;
 
-			if (display->windowHandle()->isExposed())
-				createOBSDisplay();
-			else
-				mTimerId = startTimer(67); // Arbitrary
+			switch (surfaceEvent->surfaceEventType()) {
+			case QPlatformSurfaceEvent::SurfaceCreated:
+				if (display->windowHandle()->isExposed())
+					createOBSDisplay();
+				else
+					mTimerId = startTimer(67); // Arbitrary
+				break;
+			case QPlatformSurfaceEvent::SurfaceAboutToBeDestroyed:
+				display->DestroyDisplay();
+				break;
+			default:
+				break;
+			}
+
 			break;
 		case QEvent::Expose:
 			createOBSDisplay();
@@ -55,7 +60,10 @@ protected:
 		return result;
 	}
 
-	void timerEvent(QTimerEvent *) { createOBSDisplay(true); }
+	void timerEvent(QTimerEvent *) override
+	{
+		createOBSDisplay(display->isVisible());
+	}
 
 private:
 	void createOBSDisplay(bool force = false)
@@ -98,9 +106,8 @@ OBSQTDisplay::OBSQTDisplay(QWidget *parent, Qt::WindowFlags flags)
 
 	auto windowVisible = [this](bool visible) {
 		if (!visible) {
-#ifdef ENABLE_WAYLAND
-			if (obs_get_nix_platform() == OBS_NIX_PLATFORM_WAYLAND)
-				display = nullptr;
+#if !defined(_WIN32) && !defined(__APPLE__)
+			display = nullptr;
 #endif
 			return;
 		}
@@ -161,7 +168,6 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 	gswindow.view = (id)window->winId();
 #else
 	switch (obs_get_nix_platform()) {
-	case OBS_NIX_PLATFORM_X11_GLX:
 	case OBS_NIX_PLATFORM_X11_EGL:
 		gswindow.id = window->winId();
 		gswindow.display = obs_get_nix_platform_display();
@@ -204,6 +210,39 @@ void OBSQTDisplay::CreateDisplay(bool force)
 	emit DisplayCreated(this);
 }
 
+void OBSQTDisplay::paintEvent(QPaintEvent *event)
+{
+	CreateDisplay();
+
+	QWidget::paintEvent(event);
+}
+
+void OBSQTDisplay::moveEvent(QMoveEvent *event)
+{
+	QWidget::moveEvent(event);
+
+	OnMove();
+}
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+bool OBSQTDisplay::nativeEvent(const QByteArray &, void *message, qintptr *)
+#else
+bool OBSQTDisplay::nativeEvent(const QByteArray &, void *message, long *)
+#endif
+{
+#ifdef _WIN32
+	const MSG &msg = *static_cast<MSG *>(message);
+	switch (msg.message) {
+	case WM_DISPLAYCHANGE:
+		OnDisplayChange();
+	}
+#else
+	UNUSED_PARAMETER(message);
+#endif
+
+	return false;
+}
+
 void OBSQTDisplay::resizeEvent(QResizeEvent *event)
 {
 	QWidget::resizeEvent(event);
@@ -218,14 +257,19 @@ void OBSQTDisplay::resizeEvent(QResizeEvent *event)
 	emit DisplayResized();
 }
 
-void OBSQTDisplay::paintEvent(QPaintEvent *event)
-{
-	CreateDisplay();
-
-	QWidget::paintEvent(event);
-}
-
 QPaintEngine *OBSQTDisplay::paintEngine() const
 {
 	return nullptr;
+}
+
+void OBSQTDisplay::OnMove()
+{
+	if (display)
+		obs_display_update_color_space(display);
+}
+
+void OBSQTDisplay::OnDisplayChange()
+{
+	if (display)
+		obs_display_update_color_space(display);
 }

@@ -7,7 +7,13 @@
 #include <QPushButton>
 #include <QStyle>
 #include <QToolTip>
-#include "../../item-widget-helpers.hpp"
+
+#ifndef QT_UTF8
+#define QT_UTF8(str) QString::fromUtf8(str)
+#endif
+#ifndef QT_TO_UTF8
+#define QT_TO_UTF8(str) str.toUtf8().constData()
+#endif
 
 MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 			   bool showTimeRemaining_)
@@ -295,15 +301,12 @@ QString MediaControl::FormatSeconds(float totalSeconds)
 	int minutes = totalMinutes % 60;
 	int hours = totalMinutes / 60;
 
-	QString text;
-	if (hours > 0) {
-		text.sprintf("%02d:%02d:%02d", hours, minutes, wholeSeconds);
-	} else if (showTimeDecimals) {
-		text.sprintf("%02d:%05.2f", minutes, seconds);
-	} else {
-		text.sprintf("%02d:%02d", minutes, wholeSeconds);
-	}
-	return text;
+	if (hours > 0)
+		return QString::asprintf("%02d:%02d:%02d", hours, minutes,
+					 wholeSeconds);
+	if (showTimeDecimals)
+		return QString::asprintf("%02d:%05.2f", minutes, seconds);
+	return QString::asprintf("%02d:%02d", minutes, wholeSeconds);
 }
 
 void MediaControl::StartTimer()

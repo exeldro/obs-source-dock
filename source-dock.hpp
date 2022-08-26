@@ -5,9 +5,10 @@
 #include <QDockWidget>
 #include <QSlider>
 #include <QPlainTextEdit>
+#include <memory>
 
 #include "obs.h"
-#include <../UI/obs-frontend-api/obs-frontend-api.h>
+#include <obs-frontend-api.h>
 
 #include "media-control.hpp"
 #include "obs.hpp"

@@ -13,8 +13,12 @@
 
 #include "source-dock.hpp"
 
+#ifndef QT_UTF8
 #define QT_UTF8(str) QString::fromUtf8(str)
+#endif
+#ifndef QT_TO_UTF8
 #define QT_TO_UTF8(str) str.toUtf8().constData()
+#endif
 
 SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	: QDialog(parent),
