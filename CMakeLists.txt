@@ -8,6 +8,11 @@ endif()
 
 project(source-dock VERSION 0.3.3)
 set(PROJECT_FULL_NAME "Source Dock")
+
+# Set new UUIDs when you start to create a new plugin.
+set(MACOS_PACKAGE_UUID "63D65009-BA42-4365-9E8B-CE0B89E36BC1")
+set(MACOS_INSTALLER_UUID "04528C9E-88B2-420D-9351-A73165883BC0")
+
 add_library(${PROJECT_NAME} MODULE)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.h.in ${CMAKE_CURRENT_SOURCE_DIR}/version.h)
