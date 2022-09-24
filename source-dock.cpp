@@ -9,6 +9,7 @@
 #include <QWindow>
 #include <QScreen>
 #include <QVBoxLayout>
+#include <QScrollArea>
 
 #include "media-control.hpp"
 #include "source-dock-settings.hpp"
@@ -1575,15 +1576,25 @@ void SourceDock::EnableSceneItems()
 	if (!scene)
 		return;
 
-	auto layout = new QGridLayout;
+	sceneItemsScrollArea = new QScrollArea;
+	sceneItemsScrollArea->setObjectName(QString::fromUtf8("vScrollArea"));
+	sceneItemsScrollArea->setFrameShape(QFrame::StyledPanel);
+	sceneItemsScrollArea->setFrameShadow(QFrame::Sunken);
+	sceneItemsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	sceneItemsScrollArea->setHorizontalScrollBarPolicy(
+		Qt::ScrollBarAlwaysOff);
+	sceneItemsScrollArea->setWidgetResizable(true);
+	sceneItemsScrollArea->setContentsMargins(0,0,0,0);
 
+	auto layout = new QGridLayout;
 	sceneItems = new QWidget;
 	sceneItems->setObjectName(QStringLiteral("contextContainer"));
 	sceneItems->setLayout(layout);
 
 	obs_scene_enum_items(scene, AddSceneItem, layout);
 
-	mainLayout->addWidget(sceneItems);
+	sceneItemsScrollArea->setWidget(sceneItems);
+	mainLayout->addWidget(sceneItemsScrollArea);
 
 	auto itemVisible = [](void *data, calldata_t *cd) {
 		const auto dock = static_cast<SourceDock *>(data);
@@ -1646,6 +1657,11 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 
 	auto source = obs_sceneitem_get_source(item);
 	int row = layout->rowCount();
+	if(row == 1) {
+		auto item = layout->itemAtPosition(0,0);
+		if(!item)
+			row = 0;
+	}
 	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
 	layout->addWidget(label, row, 0);
 
@@ -1695,7 +1711,9 @@ void SourceDock::DisableSceneItems()
 	if (!sceneItems)
 		return;
 
-	mainLayout->removeWidget(sceneItems);
+	mainLayout->removeWidget(sceneItemsScrollArea);
+	sceneItemsScrollArea->deleteLater();
+	sceneItemsScrollArea = nullptr;
 	sceneItems->deleteLater();
 	sceneItems = nullptr;
 	visibleSignal.Disconnect();
