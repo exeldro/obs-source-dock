@@ -5,6 +5,7 @@
 #include <QDockWidget>
 #include <QSlider>
 #include <QPlainTextEdit>
+#include <QScrollArea>
 #include <memory>
 
 #include "obs.h"
@@ -97,6 +98,7 @@ private:
 	bool switch_scene_enabled;
 	QLabel *activeLabel;
 	QWidget *sceneItems;
+	QScrollArea *sceneItemsScrollArea;
 	QPushButton *propertiesButton;
 	QPushButton *filtersButton;
 	QPlainTextEdit *textInput;
