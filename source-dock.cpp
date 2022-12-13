@@ -1584,7 +1584,7 @@ void SourceDock::EnableSceneItems()
 	sceneItemsScrollArea->setHorizontalScrollBarPolicy(
 		Qt::ScrollBarAlwaysOff);
 	sceneItemsScrollArea->setWidgetResizable(true);
-	sceneItemsScrollArea->setContentsMargins(0,0,0,0);
+	sceneItemsScrollArea->setContentsMargins(0, 0, 0, 0);
 
 	auto layout = new QGridLayout;
 	sceneItems = new QWidget;
@@ -1657,9 +1657,9 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 
 	auto source = obs_sceneitem_get_source(item);
 	int row = layout->rowCount();
-	if(row == 1) {
-		auto item = layout->itemAtPosition(0,0);
-		if(!item)
+	if (row == 1) {
+		auto item = layout->itemAtPosition(0, 0);
+		if (!item)
 			row = 0;
 	}
 	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
@@ -1844,6 +1844,8 @@ bool SourceDock::TextInputEnabled()
 
 void SourceDock::SetSource(const OBSSource source_)
 {
+	if (source_ == source)
+		return;
 	if (preview && source)
 		obs_source_dec_showing(source);
 
@@ -1870,6 +1872,8 @@ void SourceDock::SetSource(const OBSSource source_)
 				textInput->setPlainText(text);
 			}
 			obs_data_release(settings);
+			if (strncmp(obs_source_get_id(source), "text_", 5) == 0)
+				textInput->setFocus();
 		} else if (!textInput->toPlainText().isEmpty()) {
 			textInput->setPlainText("");
 		}
