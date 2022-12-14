@@ -275,7 +275,7 @@ VolumeMeter::VolumeMeter(QWidget *parent, obs_volmeter_t *obs_volmeter,
 	inputPeakHoldDuration = 1.0;                     //  1 second
 
 	channels = (int)audio_output_get_channels(obs_get_audio());
-
+	doLayout();
 	handleChannelCofigurationChange();
 	updateTimerRef = updateTimer.toStrongRef();
 	if (!updateTimerRef) {
@@ -409,9 +409,8 @@ VolumeMeter::calculateBallisticsForChannel(int channelNr, uint64_t ts,
 	} else {
 		// The peak and hold falls back to peak after 1 second.
 		qreal timeSinceLastPeak =
-			(uint64_t)(
-				ts -
-				displayInputPeakHoldLastUpdateTime[channelNr]) *
+			(uint64_t)(ts -
+				   displayInputPeakHoldLastUpdateTime[channelNr]) *
 			0.000000001;
 		if (timeSinceLastPeak > inputPeakHoldDuration) {
 			displayInputPeakHold[channelNr] = peak;
@@ -742,6 +741,8 @@ void VolumeMeter::paintEvent(QPaintEvent *event)
 
 	if (tickPaintCache == nullptr ||
 	    tickPaintCache->size() != tickPaintCacheSize) {
+		if (needLayoutChange())
+			doLayout();
 		delete tickPaintCache;
 		tickPaintCache = new QPixmap(tickPaintCacheSize);
 
@@ -813,6 +814,55 @@ void VolumeMeter::paintEvent(QPaintEvent *event)
 	}
 
 	lastRedrawTime = ts;
+}
+
+inline void VolumeMeter::doLayout()
+{
+	QMutexLocker locker(&dataMutex);
+
+	tickFont = font();
+	QFontInfo info(tickFont);
+	tickFont.setPointSizeF(info.pointSizeF() * 0.7);
+	QFontMetrics metrics(tickFont);
+
+	if (vertical) {
+		// Each meter channel is meterThickness pixels wide, plus one pixel
+		// between channels, but not after the last.
+		// Add 4 pixels for ticks, space to hold our longest label in this font,
+		// and a few pixels before the fader.
+		QRect scaleBounds = metrics.boundingRect("-88");
+		setMinimumSize(displayNrAudioChannels * (3 + 1) - 1 + 4 +
+				       scaleBounds.width() + 2,
+			       130);
+	} else {
+		// Each meter channel is meterThickness pixels high, plus one pixel
+		// between channels, but not after the last.
+		// Add 4 pixels for ticks, and space high enough to hold our label in
+		// this font, presuming that digits don't have descenders.
+		setMinimumSize(130, displayNrAudioChannels * (3 + 1) - 1 + 4 +
+					    metrics.capHeight());
+	}
+
+	resetLevels();
+}
+
+bool VolumeMeter::needLayoutChange()
+{
+	int currentNrAudioChannels = obs_volmeter_get_nr_channels(obs_volmeter);
+
+	if (!currentNrAudioChannels) {
+		struct obs_audio_info oai;
+		obs_get_audio_info(&oai);
+		currentNrAudioChannels = (oai.speakers == SPEAKERS_MONO) ? 1
+									 : 2;
+	}
+
+	if (displayNrAudioChannels != currentNrAudioChannels) {
+		displayNrAudioChannels = currentNrAudioChannels;
+		return true;
+	}
+
+	return false;
 }
 
 void VolumeMeterTimer::AddVolControl(VolumeMeter *meter)

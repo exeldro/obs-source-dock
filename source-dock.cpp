@@ -10,6 +10,7 @@
 #include <QScreen>
 #include <QVBoxLayout>
 #include <QScrollArea>
+#include <QSplitter>
 
 #include "media-control.hpp"
 #include "source-dock-settings.hpp"
@@ -70,6 +71,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_string(
 				dock, "geometry",
 				it->saveGeometry().toBase64().constData());
+			obs_data_set_string(
+				dock, "split",
+				it->saveSplitState().toBase64().constData());
 			auto *p = dynamic_cast<QMainWindow *>(it->parent());
 			if (p == main_window) {
 				obs_data_set_string(dock, "window", "");
@@ -266,6 +270,14 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 							QByteArray::fromBase64(
 								QByteArray(
 									geometry)));
+					const char *split = obs_data_get_string(
+						dock, "split");
+					if (split && strlen(split))
+						tmp->restoreSplitState(
+							QByteArray::fromBase64(
+								QByteArray(
+									split)));
+
 					tmp->SetZoom(obs_data_get_double(
 						dock, "zoom"));
 					tmp->SetScrollX(obs_data_get_double(
@@ -591,27 +603,9 @@ MODULE_EXPORT const char *obs_module_name(void)
 
 SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 	: QDockWidget(parent),
-	  source(nullptr),
 	  eventFilter(BuildEventFilter()),
-	  action(nullptr),
-	  zoom(1.0f),
-	  scrollX(0.5f),
-	  scrollY(0.5f),
-	  scrollingFromX(0),
-	  scrollingFromY(0),
 	  selected(selected_),
-	  preview(nullptr),
-	  volMeter(nullptr),
-	  obs_volmeter(nullptr),
-	  mediaControl(nullptr),
-	  mainLayout(new QVBoxLayout(this)),
-	  volControl(nullptr),
-	  switch_scene_enabled(false),
-	  activeLabel(nullptr),
-	  sceneItems(nullptr),
-	  propertiesButton(nullptr),
-	  filtersButton(nullptr),
-	  textInput(nullptr)
+	  mainLayout(new QSplitter(this))
 {
 	setFeatures(DockWidgetClosable | DockWidgetMovable |
 		    DockWidgetFloatable);
@@ -620,11 +614,10 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 	setFloating(true);
 	hide();
 
-	auto *dockWidgetContents = new QWidget;
-	dockWidgetContents->setObjectName(QStringLiteral("contextContainer"));
-	dockWidgetContents->setLayout(mainLayout);
+	mainLayout->setOrientation(Qt::Vertical);
+	mainLayout->setChildrenCollapsible(false);
 
-	setWidget(dockWidgetContents);
+	setWidget(mainLayout);
 }
 
 SourceDock::~SourceDock()
@@ -1340,8 +1333,15 @@ bool SourceDock::HandleKeyEvent(QKeyEvent *event)
 
 void SourceDock::EnablePreview()
 {
-	if (preview != nullptr)
+	if (preview) {
+		preview->setVisible(true);
+		preview->show();
+		obs_display_add_draw_callback(preview->GetDisplay(),
+					      DrawPreview, this);
+		if (source)
+			obs_source_inc_showing(source);
 		return;
+	}
 	preview = new OBSQTDisplay(this);
 	preview->setObjectName(QStringLiteral("preview"));
 	preview->setMinimumSize(QSize(24, 24));
@@ -1374,15 +1374,14 @@ void SourceDock::DisablePreview()
 		return;
 	obs_display_remove_draw_callback(preview->GetDisplay(), DrawPreview,
 					 this);
-	mainLayout->removeWidget(preview);
-	preview->deleteLater();
-	preview = nullptr;
+	preview->setVisible(false);
+
 	obs_source_dec_showing(source);
 }
 
 bool SourceDock::PreviewEnabled()
 {
-	return preview != nullptr;
+	return preview != nullptr && preview->isVisibleTo(this);
 }
 
 void SourceDock::EnableVolMeter()
@@ -1394,23 +1393,42 @@ void SourceDock::EnableVolMeter()
 	if (source)
 		obs_volmeter_attach_source(obs_volmeter, source);
 
-	volMeter = new VolumeMeter(nullptr, obs_volmeter);
-
 	obs_volmeter_add_callback(obs_volmeter, OBSVolumeLevel, this);
 
-	mainLayout->addWidget(volMeter);
+	volMeter = new VolumeMeter(nullptr, obs_volmeter);
+	volMeter->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+
+	if (volMeterWidget) {
+		volMeterWidget->layout()->addWidget(volMeter);
+		volMeterWidget->setVisible(true);
+		return;
+	}
+	const auto volMeterLayout = new QVBoxLayout;
+	volMeterWidget = new QWidget;
+	volMeterWidget->setLayout(volMeterLayout);
+	volMeterWidget->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	volMeterLayout->addWidget(volMeter);
+	mainLayout->addWidget(volMeterWidget);
 }
 
 void SourceDock::DisableVolMeter()
 {
 	if (!obs_volmeter)
 		return;
-	obs_volmeter_remove_callback(obs_volmeter, OBSVolumeLevel, this);
-	obs_volmeter_destroy(obs_volmeter);
-	obs_volmeter = nullptr;
 
+	volMeterWidget->setVisible(false);
+
+	obs_volmeter_remove_callback(obs_volmeter, OBSVolumeLevel, this);
+
+	auto layout = volMeterWidget->layout();
+	while (auto i = layout->itemAt(0)) {
+		layout->removeItem(i);
+	}
 	volMeter->deleteLater();
 	volMeter = nullptr;
+
+	obs_volmeter_destroy(obs_volmeter);
+	obs_volmeter = nullptr;
 }
 
 bool SourceDock::VolMeterEnabled()
@@ -1448,10 +1466,18 @@ void SourceDock::UpdateVolControls()
 
 void SourceDock::EnableVolControls()
 {
-	if (volControl != nullptr)
+	if (volControl != nullptr) {
+		volControl->setVisible(true);
+		if (source) {
+			const auto sh = obs_source_get_signal_handler(source);
+			signal_handler_connect(sh, "mute", OBSMute, this);
+			signal_handler_connect(sh, "volume", OBSVolume, this);
+		}
 		return;
+	}
 
 	volControl = new QWidget;
+	volControl->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	auto *audioLayout = new QHBoxLayout(this);
 
 	locked = new LockedCheckBox();
@@ -1502,21 +1528,22 @@ void SourceDock::DisableVolControls()
 		signal_handler_disconnect(sh, "mute", OBSMute, this);
 		signal_handler_disconnect(sh, "volume", OBSVolume, this);
 	}
-	mainLayout->removeWidget(volControl);
-	volControl->deleteLater();
-	volControl = nullptr;
+	volControl->setVisible(false);
 }
 bool SourceDock::VolControlsEnabled()
 {
-	return volControl != nullptr;
+	return volControl != nullptr && volControl->isVisibleTo(this);
 }
 
 void SourceDock::EnableMediaControls()
 {
-	if (mediaControl != nullptr)
+	if (mediaControl != nullptr) {
+		mediaControl->SetSource(OBSGetWeakRef(source));
+		mediaControl->setVisible(true);
 		return;
-
+	}
 	mediaControl = new MediaControl(OBSGetWeakRef(source), true, true);
+	mediaControl->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	mainLayout->addWidget(mediaControl);
 }
 
@@ -1524,15 +1551,13 @@ void SourceDock::DisableMediaControls()
 {
 	if (!mediaControl)
 		return;
-
-	mainLayout->removeWidget(mediaControl);
-	mediaControl->deleteLater();
-	mediaControl = nullptr;
+	mediaControl->SetSource(nullptr);
+	mediaControl->setVisible(false);
 }
 
 bool SourceDock::MediaControlsEnabled()
 {
-	return mediaControl != nullptr;
+	return mediaControl != nullptr && mediaControl->isVisibleTo(this);
 }
 
 void SourceDock::EnableSwitchScene()
@@ -1554,11 +1579,21 @@ bool SourceDock::SwitchSceneEnabled()
 
 void SourceDock::EnableShowActive()
 {
-	if (activeLabel)
+	if (activeLabel) {
+		activeLabel->setVisible(true);
+		signal_handler_t *sh = obs_source_get_signal_handler(source);
+		if (sh) {
+			signal_handler_connect(sh, "activate", OBSActiveChanged,
+					       this);
+			signal_handler_connect(sh, "deactivate",
+					       OBSActiveChanged, this);
+		}
 		return;
+	}
 
 	activeLabel = new QLabel;
 	activeLabel->setAlignment(Qt::AlignCenter);
+	activeLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	ActiveChanged();
 	mainLayout->addWidget(activeLabel);
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
@@ -1571,6 +1606,8 @@ void SourceDock::EnableShowActive()
 
 void SourceDock::DisableShowActive()
 {
+	if (!activeLabel)
+		return;
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	if (sh) {
 		signal_handler_disconnect(sh, "activate", OBSActiveChanged,
@@ -1578,43 +1615,48 @@ void SourceDock::DisableShowActive()
 		signal_handler_disconnect(sh, "deactivate", OBSActiveChanged,
 					  this);
 	}
-
-	mainLayout->removeWidget(activeLabel);
-	activeLabel->deleteLater();
-	activeLabel = nullptr;
+	activeLabel->setVisible(false);
 }
 bool SourceDock::ShowActiveEnabled()
 {
-	return activeLabel != nullptr;
+	return activeLabel != nullptr && activeLabel->isVisibleTo(this);
 }
 
 void SourceDock::EnableSceneItems()
 {
-	if (sceneItems)
-		return;
 	obs_scene_t *scene = obs_scene_from_source(source);
 	if (!scene)
 		return;
+	if (!sceneItems) {
+		sceneItemsScrollArea = new QScrollArea;
+		sceneItemsScrollArea->setObjectName(
+			QString::fromUtf8("vScrollArea"));
+		sceneItemsScrollArea->setFrameShape(QFrame::StyledPanel);
+		sceneItemsScrollArea->setFrameShadow(QFrame::Sunken);
+		sceneItemsScrollArea->setVerticalScrollBarPolicy(
+			Qt::ScrollBarAsNeeded);
+		sceneItemsScrollArea->setHorizontalScrollBarPolicy(
+			Qt::ScrollBarAlwaysOff);
+		sceneItemsScrollArea->setWidgetResizable(true);
+		sceneItemsScrollArea->setContentsMargins(0, 0, 0, 0);
 
-	sceneItemsScrollArea = new QScrollArea;
-	sceneItemsScrollArea->setObjectName(QString::fromUtf8("vScrollArea"));
-	sceneItemsScrollArea->setFrameShape(QFrame::StyledPanel);
-	sceneItemsScrollArea->setFrameShadow(QFrame::Sunken);
-	sceneItemsScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-	sceneItemsScrollArea->setHorizontalScrollBarPolicy(
-		Qt::ScrollBarAlwaysOff);
-	sceneItemsScrollArea->setWidgetResizable(true);
-	sceneItemsScrollArea->setContentsMargins(0, 0, 0, 0);
+		auto layout = new QGridLayout;
+		sceneItems = new QWidget;
+		sceneItems->setContentsMargins(0, 0, 0, 0);
+		sceneItems->setObjectName(QStringLiteral("contextContainer"));
+		sceneItems->setLayout(layout);
+		layout->setColumnStretch(0, 1);
+		sceneItems->setSizePolicy(QSizePolicy::Minimum,
+					  QSizePolicy::Maximum);
 
-	auto layout = new QGridLayout;
-	sceneItems = new QWidget;
-	sceneItems->setObjectName(QStringLiteral("contextContainer"));
-	sceneItems->setLayout(layout);
+		sceneItemsScrollArea->setWidget(sceneItems);
+		mainLayout->addWidget(sceneItemsScrollArea);
 
-	obs_scene_enum_items(scene, AddSceneItem, layout);
+	} else {
+		sceneItems->setVisible(true);
+	}
 
-	sceneItemsScrollArea->setWidget(sceneItems);
-	mainLayout->addWidget(sceneItemsScrollArea);
+	obs_scene_enum_items(scene, AddSceneItem, sceneItems->layout());
 
 	auto itemVisible = [](void *data, calldata_t *cd) {
 		const auto dock = static_cast<SourceDock *>(data);
@@ -1685,27 +1727,28 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 			row = 0;
 	}
 	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
-	layout->addWidget(label, row, 0);
+	layout->addWidget(label, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
-	auto prop = new QPushButton();
-	prop->setObjectName(QStringLiteral("sourcePropertiesButton"));
-	prop->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-	prop->setFixedSize(16, 16);
-	prop->setFlat(true);
-	layout->addWidget(prop, row, 1);
+	if (obs_is_source_configurable(obs_source_get_id(source))) {
+		auto prop = new QPushButton();
+		prop->setObjectName(QStringLiteral("sourcePropertiesButton"));
+		prop->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
+		prop->setFixedSize(16, 16);
+		prop->setFlat(true);
+		layout->addWidget(prop, row, 1, Qt::AlignCenter);
 
-	auto openProps = [source]() {
-		obs_frontend_open_source_properties(source);
-	};
-
-	connect(prop, &QAbstractButton::clicked, openProps);
+		auto openProps = [source]() {
+			obs_frontend_open_source_properties(source);
+		};
+		connect(prop, &QAbstractButton::clicked, openProps);
+	}
 
 	auto filters = new QPushButton();
 	filters->setObjectName(QStringLiteral("sourceFiltersButton"));
 	filters->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 	filters->setFixedSize(16, 16);
 	filters->setFlat(true);
-	layout->addWidget(filters, row, 2);
+	layout->addWidget(filters, row, 2, Qt::AlignCenter);
 
 	auto openFilters = [source]() {
 		obs_frontend_open_source_filters(source);
@@ -1719,7 +1762,7 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 	vis->setChecked(obs_sceneitem_visible(item));
 	vis->setStyleSheet("background: none");
 	vis->setProperty("id", (int)obs_sceneitem_get_id(item));
-	layout->addWidget(vis, row, 3);
+	layout->addWidget(vis, row, 3, Qt::AlignCenter);
 
 	auto setItemVisible = [item](bool val) {
 		obs_sceneitem_set_visible(item, val);
@@ -1733,11 +1776,12 @@ void SourceDock::DisableSceneItems()
 	if (!sceneItems)
 		return;
 
-	mainLayout->removeWidget(sceneItemsScrollArea);
-	sceneItemsScrollArea->deleteLater();
-	sceneItemsScrollArea = nullptr;
-	sceneItems->deleteLater();
-	sceneItems = nullptr;
+	sceneItemsScrollArea->setVisible(false);
+	sceneItems->setVisible(false);
+	const auto layout = sceneItems->layout();
+	for (auto i = layout->count() - 1; i > 0; i--) {
+		layout->removeItem(layout->itemAt(i));
+	}
 	visibleSignal.Disconnect();
 	addSignal.Disconnect();
 	removeSignal.Disconnect();
@@ -1746,13 +1790,15 @@ void SourceDock::DisableSceneItems()
 }
 bool SourceDock::SceneItemsEnabled()
 {
-	return sceneItems != nullptr;
+	return sceneItems != nullptr && sceneItems->isVisibleTo(this);
 }
 
 void SourceDock::EnableProperties()
 {
-	if (propertiesButton)
+	if (propertiesButton) {
+		propertiesButton->setVisible(true);
 		return;
+	}
 
 	propertiesButton = new QPushButton;
 	propertiesButton->setObjectName(
@@ -1767,21 +1813,22 @@ void SourceDock::EnableProperties()
 
 void SourceDock::DisableProperties()
 {
-	mainLayout->removeWidget(propertiesButton);
-	propertiesButton->deleteLater();
-	propertiesButton = nullptr;
+	if (!propertiesButton)
+		return;
+	propertiesButton->setVisible(false);
 }
 
 bool SourceDock::PropertiesEnabled()
 {
-	return propertiesButton != nullptr;
+	return propertiesButton != nullptr && propertiesButton->isVisible();
 }
 
 void SourceDock::EnableFilters()
 {
-	if (filtersButton)
+	if (filtersButton) {
+		filtersButton->setVisible(true);
 		return;
-
+	}
 	filtersButton = new QPushButton;
 	filtersButton->setObjectName(QStringLiteral("sourceFiltersButton"));
 	filtersButton->setText(QT_UTF8(obs_module_text("Filters")));
@@ -1792,20 +1839,23 @@ void SourceDock::EnableFilters()
 
 void SourceDock::DisableFilters()
 {
-	mainLayout->removeWidget(filtersButton);
-	filtersButton->deleteLater();
-	filtersButton = nullptr;
+	if (!filtersButton)
+		return;
+	filtersButton->setVisible(false);
 }
 
 bool SourceDock::FiltersEnabled()
 {
-	return filtersButton != nullptr;
+	return filtersButton != nullptr && filtersButton->isVisibleTo(this);
 }
 
 void SourceDock::EnableTextInput()
 {
-	if (textInput)
+	if (textInput) {
+		textInput->setVisible(true);
+		textInputTimer->start(1000);
 		return;
+	}
 
 	textInput = new QPlainTextEdit;
 	textInput->setObjectName(QStringLiteral("textInput"));
@@ -1850,31 +1900,30 @@ void SourceDock::EnableTextInput()
 
 void SourceDock::DisableTextInput()
 {
+	if (!textInput)
+		return;
 	textInputTimer->stop();
-	textInputTimer->deleteLater();
-	textInputTimer = nullptr;
 
-	mainLayout->removeWidget(textInput);
-	textInput->deleteLater();
+	textInput->setVisible(false);
 	textInput = nullptr;
 }
 
 bool SourceDock::TextInputEnabled()
 {
-	return textInput != nullptr;
+	return textInput != nullptr && textInput->isVisibleTo(this);
 }
 
 void SourceDock::SetSource(const OBSSource source_)
 {
 	if (source_ == source)
 		return;
-	if (preview && source)
+	if (preview && preview->isVisibleTo(this) && source)
 		obs_source_dec_showing(source);
 
 	if (obs_volmeter)
 		obs_volmeter_detach_source(obs_volmeter);
 
-	if (volControl && source) {
+	if (volControl && volControl->isVisibleTo(this) && source) {
 		auto sh = obs_source_get_signal_handler(source);
 		signal_handler_disconnect(sh, "mute", OBSMute, this);
 		signal_handler_disconnect(sh, "volume", OBSVolume, this);
@@ -1885,7 +1934,7 @@ void SourceDock::SetSource(const OBSSource source_)
 	UpdateVolControls();
 	ActiveChanged();
 
-	if (textInput) {
+	if (textInput && textInput->isVisibleTo(this)) {
 		if (auto *settings = source ? obs_source_get_settings(source)
 					    : nullptr) {
 			const auto text =
@@ -1900,14 +1949,14 @@ void SourceDock::SetSource(const OBSSource source_)
 			textInput->setPlainText("");
 		}
 	}
-	if (mediaControl) {
+	if (mediaControl && mediaControl->isVisibleTo(this)) {
 		mediaControl->SetSource(OBSGetWeakRef(source));
 	}
 
 	if (!source)
 		return;
 
-	if (volControl) {
+	if (volControl && volControl->isVisibleTo(this)) {
 		auto sh = obs_source_get_signal_handler(source);
 		signal_handler_connect(sh, "mute", OBSMute, this);
 		signal_handler_connect(sh, "volume", OBSVolume, this);
@@ -1916,7 +1965,7 @@ void SourceDock::SetSource(const OBSSource source_)
 	if (obs_volmeter)
 		obs_volmeter_attach_source(obs_volmeter, source);
 
-	if (preview)
+	if (preview && preview->isVisibleTo(this))
 		obs_source_inc_showing(source);
 }
 
@@ -1949,6 +1998,16 @@ void SourceDock::SetScrollY(float scroll)
 	if (scroll < 0.0f || scroll > 1.0f)
 		return;
 	scrollY = scroll;
+}
+
+QByteArray SourceDock::saveSplitState()
+{
+	return mainLayout->saveState();
+}
+
+bool SourceDock::restoreSplitState(const QByteArray &splitState)
+{
+	return mainLayout->restoreState(splitState);
 }
 
 LockedCheckBox::LockedCheckBox() {}

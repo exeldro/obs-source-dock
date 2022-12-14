@@ -8,7 +8,6 @@
 
 #include "media-slider.hpp"
 
-
 class MediaControl : public QWidget {
 	Q_OBJECT
 

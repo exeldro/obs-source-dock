@@ -58,38 +58,38 @@ MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 	previousButton->setMaximumSize(22, 22);
 	previousButton->setProperty("themeID", "previousIcon");
 	previousButton->setIconSize(QSize(20, 20));
-	nameLayout->addWidget(previousButton);
+	nameLayout->addWidget(previousButton, 0, Qt::AlignCenter);
 
 	restartButton = new QPushButton();
 	restartButton->setMinimumSize(22, 22);
 	restartButton->setMaximumSize(22, 22);
 	restartButton->setProperty("themeID", "restartIcon");
 	restartButton->setIconSize(QSize(20, 20));
-	nameLayout->addWidget(restartButton);
+	nameLayout->addWidget(restartButton, 0, Qt::AlignCenter);
 
 	playPauseButton = new QPushButton();
 	playPauseButton->setMinimumSize(22, 22);
 	playPauseButton->setMaximumSize(22, 22);
 	playPauseButton->setProperty("themeID", "playIcon");
 	playPauseButton->setIconSize(QSize(20, 20));
-	nameLayout->addWidget(playPauseButton);
+	nameLayout->addWidget(playPauseButton, 0, Qt::AlignCenter);
 
 	stopButton = new QPushButton();
 	stopButton->setMinimumSize(22, 22);
 	stopButton->setMaximumSize(22, 22);
 	stopButton->setProperty("themeID", "stopIcon");
 	stopButton->setIconSize(QSize(20, 20));
-	nameLayout->addWidget(stopButton);
+	nameLayout->addWidget(stopButton, 0, Qt::AlignCenter);
 
 	nextButton = new QPushButton();
 	nextButton->setMinimumSize(22, 22);
 	nextButton->setMaximumSize(22, 22);
 	nextButton->setProperty("themeID", "nextIcon");
 	nextButton->setIconSize(QSize(20, 20));
-	nameLayout->addWidget(nextButton);
+	nameLayout->addWidget(nextButton, 0, Qt::AlignCenter);
 
 	nameLabel = new QLabel();
-	nameLayout->addWidget(nameLabel);
+	nameLayout->addWidget(nameLabel, 1, Qt::AlignVCenter | Qt::AlignLeft);
 
 	mainLayout->addItem(sliderLayout);
 	mainLayout->addItem(nameLayout);

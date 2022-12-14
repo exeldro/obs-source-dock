@@ -90,6 +90,8 @@ private:
 	void paintVMeter(QPainter &painter, int x, int y, int width, int height,
 			 float magnitude, float peak, float peakHold);
 	void paintVTicks(QPainter &painter, int x, int y, int height);
+	inline void doLayout();
+	bool needLayoutChange();
 
 	QMutex dataMutex;
 

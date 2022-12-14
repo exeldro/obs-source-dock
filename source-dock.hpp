@@ -10,6 +10,7 @@
 
 #include "obs.h"
 #include <obs-frontend-api.h>
+#include <QSplitter>
 
 #include "media-control.hpp"
 #include "obs.hpp"
@@ -76,33 +77,34 @@ class SourceDock : public QDockWidget {
 	Q_OBJECT
 
 private:
-	OBSSource source;
+	OBSSource source = nullptr;
 	std::unique_ptr<OBSEventFilter> eventFilter;
-	QAction *action;
-	float zoom;
-	float scrollX;
-	float scrollY;
-	int scrollingFromX;
-	int scrollingFromY;
+	QAction *action = nullptr;
+	float zoom = 1.0f;
+	float scrollX = 0.5f;
+	float scrollY = 0.5f;
+	int scrollingFromX = 0;
+	int scrollingFromY = 0;
 	bool selected;
 
-	OBSQTDisplay *preview;
-	VolumeMeter *volMeter;
-	obs_volmeter_t *obs_volmeter;
-	LockedCheckBox *locked;
-	SliderIgnoreScroll *slider;
-	MuteCheckBox *mute;
-	MediaControl *mediaControl;
-	QVBoxLayout *mainLayout;
-	QWidget *volControl;
-	bool switch_scene_enabled;
-	QLabel *activeLabel;
-	QWidget *sceneItems;
-	QScrollArea *sceneItemsScrollArea;
-	QPushButton *propertiesButton;
-	QPushButton *filtersButton;
-	QPlainTextEdit *textInput;
-	QTimer *textInputTimer;
+	OBSQTDisplay *preview = nullptr;
+	VolumeMeter *volMeter = nullptr;
+	QWidget *volMeterWidget = nullptr;
+	obs_volmeter_t *obs_volmeter = nullptr;
+	LockedCheckBox *locked = nullptr;
+	SliderIgnoreScroll *slider = nullptr;
+	MuteCheckBox *mute = nullptr;
+	MediaControl *mediaControl = nullptr;
+	QSplitter *mainLayout = nullptr;
+	QWidget *volControl = nullptr;
+	bool switch_scene_enabled = false;
+	QLabel *activeLabel = nullptr;
+	QWidget *sceneItems = nullptr;
+	QScrollArea *sceneItemsScrollArea = nullptr;
+	QPushButton *propertiesButton = nullptr;
+	QPushButton *filtersButton = nullptr;
+	QPlainTextEdit *textInput = nullptr;
+	QTimer *textInputTimer = nullptr;
 
 	OBSSignal visibleSignal;
 	OBSSignal addSignal;
@@ -202,6 +204,9 @@ public:
 	void SetScrollX(float scroll);
 	float GetScrollY() { return scrollY; }
 	void SetScrollY(float scroll);
+
+	QByteArray saveSplitState();
+	bool restoreSplitState(const QByteArray &splitState);
 };
 
 inline std::list<SourceDock *> source_docks;
