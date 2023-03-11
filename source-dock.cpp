@@ -1654,6 +1654,7 @@ void SourceDock::EnableSceneItems()
 
 	} else {
 		sceneItems->setVisible(true);
+		sceneItemsScrollArea->setVisible(true);
 	}
 
 	obs_scene_enum_items(scene, AddSceneItem, sceneItems->layout());
@@ -1720,7 +1721,7 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 	QGridLayout *layout = static_cast<QGridLayout *>(data);
 
 	auto source = obs_sceneitem_get_source(item);
-	int row = layout->rowCount();
+	int row = obs_sceneitem_get_order_position(item);
 	if (row == 1) {
 		auto item = layout->itemAtPosition(0, 0);
 		if (!item)
@@ -1779,8 +1780,10 @@ void SourceDock::DisableSceneItems()
 	sceneItemsScrollArea->setVisible(false);
 	sceneItems->setVisible(false);
 	const auto layout = sceneItems->layout();
-	for (auto i = layout->count() - 1; i > 0; i--) {
-		layout->removeItem(layout->itemAt(i));
+	for (auto i = layout->count() - 1; i >= 0; i--) {
+		auto item = layout->takeAt(i);
+		layout->removeWidget(item->widget());
+		delete item->widget();
 	}
 	visibleSignal.Disconnect();
 	addSignal.Disconnect();
