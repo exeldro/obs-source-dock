@@ -428,8 +428,10 @@ static void frontend_event(enum obs_frontend_event event, void *)
 					source_active[it->GetSource()] = 0;
 			}
 			update_selected_source();
-			if (source_active.empty())
+			if (source_active.empty()) {
+				obs_source_release(preview);
 				return;
+			}
 			if (preview) {
 				for (auto &i : source_active) {
 					if (i.first == preview) {
