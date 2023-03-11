@@ -123,7 +123,7 @@ private:
 	static void OBSActiveChanged(void *, calldata_t *);
 	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 				 void *data);
-
+	int GetSceneItemCount(obs_scene_t* scene);
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
 	bool HandleMouseClickEvent(QMouseEvent *event);
