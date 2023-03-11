@@ -1657,6 +1657,7 @@ void SourceDock::EnableSceneItems()
 		sceneItemsScrollArea->setVisible(true);
 	}
 
+	sceneItems->layout()->setProperty("sceneItemCount", GetSceneItemCount(scene));
 	obs_scene_enum_items(scene, AddSceneItem, sceneItems->layout());
 
 	auto itemVisible = [](void *data, calldata_t *cd) {
@@ -1714,6 +1715,18 @@ void SourceDock::RefreshItems()
 	EnableSceneItems();
 }
 
+int SourceDock::GetSceneItemCount(obs_scene_t *scene)
+{
+	int count = 0;
+	auto cb = [](obs_scene_t *, obs_sceneitem_t *, void *data) {
+		int *count = (int *)data;
+		(*count)++;
+		return true;
+	};
+	obs_scene_enum_items(scene, cb, &count);
+	return count;
+}
+
 bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 			      void *data)
 {
@@ -1721,12 +1734,9 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 	QGridLayout *layout = static_cast<QGridLayout *>(data);
 
 	auto source = obs_sceneitem_get_source(item);
-	int row = obs_sceneitem_get_order_position(item);
-	if (row == 1) {
-		auto item = layout->itemAtPosition(0, 0);
-		if (!item)
-			row = 0;
-	}
+	int sceneItemCount = layout->property("sceneItemCount").toInt();
+	int row = sceneItemCount - obs_sceneitem_get_order_position(item) - 1;
+
 	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
 	layout->addWidget(label, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
