@@ -704,7 +704,8 @@ void SourceDock::OBSVolumeLevel(void *data,
 				const float inputPeak[MAX_AUDIO_CHANNELS])
 {
 	SourceDock *sourceDock = static_cast<SourceDock *>(data);
-	sourceDock->volMeter->setLevels(magnitude, peak, inputPeak);
+	if (sourceDock->volMeter)
+		sourceDock->volMeter->setLevels(magnitude, peak, inputPeak);
 }
 
 void SourceDock::OBSVolume(void *data, calldata_t *call_data)
@@ -1395,10 +1396,10 @@ void SourceDock::EnableVolMeter()
 	if (source)
 		obs_volmeter_attach_source(obs_volmeter, source);
 
-	obs_volmeter_add_callback(obs_volmeter, OBSVolumeLevel, this);
-
 	volMeter = new VolumeMeter(nullptr, obs_volmeter);
 	volMeter->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+
+	obs_volmeter_add_callback(obs_volmeter, OBSVolumeLevel, this);
 
 	if (volMeterWidget) {
 		volMeterWidget->layout()->addWidget(volMeter);
@@ -1659,7 +1660,8 @@ void SourceDock::EnableSceneItems()
 		sceneItemsScrollArea->setVisible(true);
 	}
 
-	sceneItems->layout()->setProperty("sceneItemCount", GetSceneItemCount(scene));
+	sceneItems->layout()->setProperty("sceneItemCount",
+					  GetSceneItemCount(scene));
 	obs_scene_enum_items(scene, AddSceneItem, sceneItems->layout());
 
 	auto itemVisible = [](void *data, calldata_t *cd) {
