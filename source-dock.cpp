@@ -74,7 +74,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_string(
 				dock, "split",
 				it->saveSplitState().toBase64().constData());
-			auto *p = dynamic_cast<QMainWindow *>(it->parent());
+			auto *p = dynamic_cast<QMainWindow *>(
+				it->parent()->parent());
 			if (p == main_window) {
 				obs_data_set_string(dock, "window", "");
 			} else {
@@ -83,9 +84,13 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 				const char *wtc = t.constData();
 				obs_data_set_string(dock, "window", wtc);
 			}
-			obs_data_set_int(dock, "dockarea",
-					 p->dockWidgetArea(it));
-			obs_data_set_bool(dock, "floating", it->isFloating());
+			obs_data_set_int(
+				dock, "dockarea",
+				p->dockWidgetArea(
+					(QDockWidget *)it->parentWidget()));
+			obs_data_set_bool(dock, "floating",
+					  ((QDockWidget *)it->parentWidget())
+						  ->isFloating());
 			obs_data_set_double(dock, "zoom", it->GetZoom());
 			obs_data_set_double(dock, "scrollx", it->GetScrollX());
 			obs_data_set_double(dock, "scrolly", it->GetScrollY());
@@ -238,13 +243,35 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					if (obs_data_get_bool(dock,
 							      "textinput"))
 						tmp->EnableTextInput();
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
+					obs_frontend_add_dock_by_id(title,
+								    title, tmp);
+					const auto d =
+						static_cast<QDockWidget *>(
+							tmp->parentWidget());
+#else
+					const auto d =
+						new QDockWidget(main_window);
+					d->setObjectName(
+						QString::fromUtf8(title));
+					d->setWindowTitle(
+						QString::fromUtf8(title));
+					d->setWidget(tmp);
+					d->setFeatures(
+						QDockWidget::DockWidgetMovable |
+						QDockWidget::DockWidgetFloatable);
+					d->setFloating(true);
+
 					auto *a = static_cast<QAction *>(
-						obs_frontend_add_dock(tmp));
+						obs_frontend_add_dock(dock));
 					tmp->setAction(a);
+
+#endif
+
 					if (obs_data_get_bool(dock, "hidden"))
-						tmp->hide();
+						d->hide();
 					else
-						tmp->show();
+						d->show();
 					obs_source_release(s);
 
 					const auto dockarea =
@@ -253,20 +280,20 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 								dock,
 								"dockarea"));
 					if (dockarea !=
-					    window->dockWidgetArea(tmp))
+					    window->dockWidgetArea(d))
 						window->addDockWidget(dockarea,
-								      tmp);
+								      d);
 
 					const auto floating = obs_data_get_bool(
 						dock, "floating");
-					if (tmp->isFloating() != floating)
-						tmp->setFloating(floating);
+					if (d->isFloating() != floating)
+						d->setFloating(floating);
 
 					const char *geometry =
 						obs_data_get_string(dock,
 								    "geometry");
 					if (geometry && strlen(geometry))
-						tmp->restoreGeometry(
+						d->restoreGeometry(
 							QByteArray::fromBase64(
 								QByteArray(
 									geometry)));
@@ -604,22 +631,16 @@ MODULE_EXPORT const char *obs_module_name(void)
 #define LOG_RANGE_VAL -2.00860017176191756f
 
 SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
-	: QDockWidget(parent),
+	: QSplitter(parent),
 	  eventFilter(BuildEventFilter()),
-	  selected(selected_),
-	  mainLayout(new QSplitter(this))
+	  selected(selected_)
 {
-	setFeatures(DockWidgetClosable | DockWidgetMovable |
-		    DockWidgetFloatable);
+
 	setWindowTitle(name);
 	setObjectName(name);
-	setFloating(true);
-	hide();
 
-	mainLayout->setOrientation(Qt::Vertical);
-	mainLayout->setChildrenCollapsible(false);
-
-	setWidget(mainLayout);
+	setOrientation(Qt::Vertical);
+	setChildrenCollapsible(false);
 }
 
 SourceDock::~SourceDock()
@@ -1366,7 +1387,7 @@ void SourceDock::EnablePreview()
 	preview->show();
 	connect(preview, &OBSQTDisplay::DisplayCreated, addDrawCallback);
 
-	mainLayout->addWidget(preview);
+	addWidget(preview);
 	if (source)
 		obs_source_inc_showing(source);
 }
@@ -1411,7 +1432,7 @@ void SourceDock::EnableVolMeter()
 	volMeterWidget->setLayout(volMeterLayout);
 	volMeterWidget->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	volMeterLayout->addWidget(volMeter);
-	mainLayout->addWidget(volMeterWidget);
+	addWidget(volMeterWidget);
 }
 
 void SourceDock::DisableVolMeter()
@@ -1517,7 +1538,7 @@ void SourceDock::EnableVolControls()
 	audioLayout->addWidget(mute);
 
 	volControl->setLayout(audioLayout);
-	mainLayout->addWidget(volControl);
+	addWidget(volControl);
 
 	UpdateVolControls();
 }
@@ -1547,7 +1568,7 @@ void SourceDock::EnableMediaControls()
 	}
 	mediaControl = new MediaControl(OBSGetWeakRef(source), true, true);
 	mediaControl->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-	mainLayout->addWidget(mediaControl);
+	addWidget(mediaControl);
 }
 
 void SourceDock::DisableMediaControls()
@@ -1598,7 +1619,7 @@ void SourceDock::EnableShowActive()
 	activeLabel->setAlignment(Qt::AlignCenter);
 	activeLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	ActiveChanged();
-	mainLayout->addWidget(activeLabel);
+	addWidget(activeLabel);
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	if (sh) {
 		signal_handler_connect(sh, "activate", OBSActiveChanged, this);
@@ -1653,7 +1674,7 @@ void SourceDock::EnableSceneItems()
 					  QSizePolicy::Maximum);
 
 		sceneItemsScrollArea->setWidget(sceneItems);
-		mainLayout->addWidget(sceneItemsScrollArea);
+		addWidget(sceneItemsScrollArea);
 
 	} else {
 		sceneItems->setVisible(true);
@@ -1821,7 +1842,7 @@ void SourceDock::EnableProperties()
 	propertiesButton->setObjectName(
 		QStringLiteral("sourcePropertiesButton"));
 	propertiesButton->setText(QT_UTF8(obs_module_text("Properties")));
-	mainLayout->addWidget(propertiesButton);
+	addWidget(propertiesButton);
 	auto openProps = [this]() {
 		obs_frontend_open_source_properties(source);
 	};
@@ -1849,8 +1870,10 @@ void SourceDock::EnableFilters()
 	filtersButton = new QPushButton;
 	filtersButton->setObjectName(QStringLiteral("sourceFiltersButton"));
 	filtersButton->setText(QT_UTF8(obs_module_text("Filters")));
-	mainLayout->addWidget(filtersButton);
-	auto openProps = [this]() { obs_frontend_open_source_filters(source); };
+	addWidget(filtersButton);
+	auto openProps = [this]() {
+		obs_frontend_open_source_filters(source);
+	};
 	connect(filtersButton, &QAbstractButton::clicked, openProps);
 }
 
@@ -1884,7 +1907,7 @@ void SourceDock::EnableTextInput()
 		obs_data_release(settings);
 	}
 
-	mainLayout->addWidget(textInput);
+	addWidget(textInput);
 	auto changeText = [this]() {
 		if (auto *settings = source ? obs_source_get_settings(source)
 					    : nullptr) {
@@ -2019,21 +2042,43 @@ void SourceDock::SetScrollY(float scroll)
 
 QByteArray SourceDock::saveSplitState()
 {
-	return mainLayout->saveState();
+	return saveState();
 }
 
 bool SourceDock::restoreSplitState(const QByteArray &splitState)
 {
-	return mainLayout->restoreState(splitState);
+	return restoreState(splitState);
 }
 
-LockedCheckBox::LockedCheckBox() {}
+LockedCheckBox::LockedCheckBox()
+{
+	setProperty("lockCheckBox", true);
+}
 
-LockedCheckBox::LockedCheckBox(QWidget *parent) : QCheckBox(parent) {}
+LockedCheckBox::LockedCheckBox(QWidget *parent) : QCheckBox(parent)
+{
+	setProperty("lockCheckBox", true);
+}
 
-VisibilityCheckBox::VisibilityCheckBox() {}
+VisibilityCheckBox::VisibilityCheckBox()
+{
+	setProperty("visibilityCheckBox", true);
+}
 
-VisibilityCheckBox::VisibilityCheckBox(QWidget *parent) : QCheckBox(parent) {}
+VisibilityCheckBox::VisibilityCheckBox(QWidget *parent) : QCheckBox(parent)
+{
+	setProperty("visibilityCheckBox", true);
+}
+
+MuteCheckBox::MuteCheckBox()
+{
+	setProperty("muteCheckBox", true);
+}
+
+MuteCheckBox::MuteCheckBox(QWidget *parent) : QCheckBox(parent)
+{
+	setProperty("muteCheckBox", true);
+}
 
 SliderIgnoreScroll::SliderIgnoreScroll(QWidget *parent) : QSlider(parent)
 {

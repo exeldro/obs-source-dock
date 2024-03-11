@@ -323,14 +323,29 @@ void SourceDockSettingsDialog::AddClicked()
 	else
 		tmp->hide();
 
+	source_docks.push_back(tmp);
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
+	auto t = title.toUtf8();
+	obs_frontend_add_dock_by_id(t.constData(), t.constData(), tmp);
+	const auto dock = static_cast<QDockWidget *>(tmp->parentWidget());
+#else
+	const auto dock = new QDockWidget(main_window);
+	dock->setObjectName(title);
+	dock->setWindowTitle(title);
+	dock->setWidget(tmp);
+	dock->setFeatures(QDockWidget::DockWidgetMovable |
+			  QDockWidget::DockWidgetFloatable);
+	dock->setFloating(true);
+	//dock->hide();
+
+	auto *a = static_cast<QAction *>(obs_frontend_add_dock(dock));
+	tmp->setAction(a);
+#endif
 	if (!window_name.isEmpty()) {
-		main_window->addDockWidget(Qt::LeftDockWidgetArea, tmp);
-		tmp->setFloating(false);
+		main_window->addDockWidget(Qt::LeftDockWidgetArea, dock);
+		dock->setFloating(false);
 		//main_window->focusWidget();
 	}
-	source_docks.push_back(tmp);
-	auto *a = static_cast<QAction *>(obs_frontend_add_dock(tmp));
-	tmp->setAction(a);
 	if (source)
 		obs_source_release(source);
 	else
@@ -364,7 +379,8 @@ void SourceDockSettingsDialog::RefreshTable()
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
-		const auto parent = dynamic_cast<QMainWindow *>(it->parent());
+		const auto parent =
+			dynamic_cast<QMainWindow *>(it->parent()->parent());
 		if (!window.isEmpty()) {
 			auto w = parent->windowTitle();
 			if (!w.contains(window, Qt::CaseInsensitive))
@@ -389,12 +405,12 @@ void SourceDockSettingsDialog::RefreshTable()
 		checkBox->setChecked(!dock->isHidden() && !parent->isHidden());
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
 			if (checkBox->isChecked()) {
-				dock->show();
+				dock->parentWidget()->show();
 				const auto parent = dynamic_cast<QMainWindow *>(
-					dock->parent());
+					dock->parent()->parent());
 				parent->show();
 			} else {
-				dock->hide();
+				dock->parentWidget()->hide();
 			}
 		});
 		mainLayout->addWidget(checkBox, row, col++);

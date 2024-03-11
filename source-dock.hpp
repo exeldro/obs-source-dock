@@ -59,6 +59,9 @@ public:
 
 class MuteCheckBox : public QCheckBox {
 	Q_OBJECT
+public:
+	MuteCheckBox();
+	explicit MuteCheckBox(QWidget *parent);
 };
 
 class SliderIgnoreScroll : public QSlider {
@@ -73,7 +76,7 @@ protected:
 	virtual void wheelEvent(QWheelEvent *event) override;
 };
 
-class SourceDock : public QDockWidget {
+class SourceDock : public QSplitter {
 	Q_OBJECT
 
 private:
@@ -95,7 +98,6 @@ private:
 	SliderIgnoreScroll *slider = nullptr;
 	MuteCheckBox *mute = nullptr;
 	MediaControl *mediaControl = nullptr;
-	QSplitter *mainLayout = nullptr;
 	QWidget *volControl = nullptr;
 	bool switch_scene_enabled = false;
 	QLabel *activeLabel = nullptr;
@@ -123,7 +125,7 @@ private:
 	static void OBSActiveChanged(void *, calldata_t *);
 	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
 				 void *data);
-	int GetSceneItemCount(obs_scene_t* scene);
+	int GetSceneItemCount(obs_scene_t *scene);
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
 	bool HandleMouseClickEvent(QMouseEvent *event);
