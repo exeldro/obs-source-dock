@@ -9,7 +9,7 @@ else()
   cmake_minimum_required(VERSION 3.18)
 endif()
 
-project(source-dock VERSION 0.3.7)
+project(source-dock VERSION 0.3.8)
 set(PROJECT_FULL_NAME "Source Dock")
 
 # Set new UUIDs when you start to create a new plugin.

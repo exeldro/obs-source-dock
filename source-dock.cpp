@@ -263,7 +263,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					d->setFloating(true);
 
 					auto *a = static_cast<QAction *>(
-						obs_frontend_add_dock(dock));
+						obs_frontend_add_dock(d));
 					tmp->setAction(a);
 
 #endif
