@@ -410,8 +410,9 @@ static void frontend_event(enum obs_frontend_event event, void *)
 	    event == OBS_FRONTEND_EVENT_EXIT) {
 		set_previous_scene_empty(nullptr, nullptr);
 		for (const auto &it : source_docks) {
-			it->close();
 			delete (it);
+			it->parentWidget()->close();
+			delete (it->parentWidget());
 		}
 		source_docks.clear();
 		for (const auto &it : source_windows) {
@@ -645,7 +646,16 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
-	delete action;
+	auto dock = static_cast<QDockWidget *>(parentWidget());
+	if (dock) {
+		auto tva = dock->toggleViewAction();
+		if (tva)
+			QObject::disconnect(tva, &QAction::toggled, nullptr, 0);
+	}
+	if (action) {
+		QObject::disconnect(action, &QAction::triggered, nullptr, 0);
+		delete action;
+	}
 	DisableFilters();
 	DisableProperties();
 	DisableSceneItems();

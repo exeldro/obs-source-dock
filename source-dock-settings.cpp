@@ -620,8 +620,9 @@ void SourceDockSettingsDialog::DeleteClicked()
 				++it;
 				continue;
 			}
-			(*it)->close();
 			(*it)->deleteLater();
+			(*it)->parentWidget()->close();
+			(*it)->parentWidget()->deleteLater();
 			it = source_docks.erase(it);
 		}
 	}
