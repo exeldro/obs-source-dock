@@ -107,6 +107,7 @@ private:
 	QPushButton *filtersButton = nullptr;
 	QPlainTextEdit *textInput = nullptr;
 	QTimer *textInputTimer = nullptr;
+	obs_data_t *textInputCustomStyle = nullptr;
 
 	OBSSignal visibleSignal;
 	OBSSignal addSignal;
@@ -199,6 +200,10 @@ public:
 	void EnableTextInput();
 	void DisableTextInput();
 	bool TextInputEnabled();
+
+	obs_data_t *GetCustomTextInputStyle();
+	void SetCustomTextInputStyle(obs_data_t *);
+	void ApplyCustomTextInputStyle();
 
 	float GetZoom() const { return zoom; }
 	void SetZoom(float zoom);

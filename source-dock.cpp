@@ -11,6 +11,9 @@
 #include <QVBoxLayout>
 #include <QScrollArea>
 #include <QSplitter>
+#include <QFont>
+#include <QFontDialog>
+#include <QColorDialog>
 
 #include "media-control.hpp"
 #include "source-dock-settings.hpp"
@@ -68,6 +71,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->FiltersEnabled());
 			obs_data_set_bool(dock, "textinput",
 					  it->TextInputEnabled());
+			auto st = it->GetCustomTextInputStyle();
+			if (st)
+				obs_data_set_obj(dock, "textinputstyle", st);
 			obs_data_set_string(
 				dock, "geometry",
 				it->saveGeometry().toBase64().constData());
@@ -243,6 +249,11 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					if (obs_data_get_bool(dock,
 							      "textinput"))
 						tmp->EnableTextInput();
+					auto st = obs_data_get_obj(
+						dock, "textinputstyle");
+					tmp->SetCustomTextInputStyle(st);
+					obs_data_release(st);
+
 #if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 					obs_frontend_add_dock_by_id(title,
 								    title, tmp);
@@ -664,6 +675,7 @@ SourceDock::~SourceDock()
 	DisableVolControls();
 	DisableMediaControls();
 	DisablePreview();
+	obs_data_release(textInputCustomStyle);
 }
 
 static inline void GetScaleAndCenterPos(int baseCX, int baseCY, int windowCX,
@@ -1899,6 +1911,22 @@ bool SourceDock::FiltersEnabled()
 	return filtersButton != nullptr && filtersButton->isVisibleTo(this);
 }
 
+static inline QColor color_from_int(long long val)
+{
+	return QColor(val & 0xff, (val >> 8) & 0xff, (val >> 16) & 0xff,
+		      (val >> 24) & 0xff);
+}
+
+static inline long long color_to_int(QColor color)
+{
+	auto shift = [&](unsigned val, int shift) {
+		return ((val & 0xff) << shift);
+	};
+
+	return shift(color.red(), 0) | shift(color.green(), 8) |
+	       shift(color.blue(), 16) | shift(color.alpha(), 24);
+}
+
 void SourceDock::EnableTextInput()
 {
 	if (textInput) {
@@ -1909,6 +1937,137 @@ void SourceDock::EnableTextInput()
 
 	textInput = new QPlainTextEdit;
 	textInput->setObjectName(QStringLiteral("textInput"));
+	ApplyCustomTextInputStyle();
+	textInput->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(textInput, &QPlainTextEdit::customContextMenuRequested, [this]() {
+		auto menu = textInput->createStandardContextMenu();
+		menu->addSeparator();
+		auto m = menu->addMenu(obs_module_text("CustomStyle"));
+		m->addAction(QString::fromUtf8(obs_module_text("Font")), [this]() {
+			QFontDialog::FontDialogOptions options;
+			bool success = false;
+#ifndef _WIN32
+			options = QFontDialog::DontUseNativeDialog;
+#endif
+			QFont font;
+			if (textInputCustomStyle) {
+				auto fam = obs_data_get_string(
+					textInputCustomStyle, "font-family");
+				if (fam && strlen(fam))
+					font.setFamily(fam);
+				auto st = obs_data_get_int(textInputCustomStyle,
+							   "font-style");
+				if (st)
+					font.setStyle((QFont::Style)st);
+				auto w = obs_data_get_int(textInputCustomStyle,
+							  "font-weight");
+				if (w)
+					font.setWeight((QFont::Weight)w);
+
+				auto s = obs_data_get_int(textInputCustomStyle,
+							  "font-size");
+				if (s)
+					font.setPointSize(s);
+			}
+			font = QFontDialog::getFont(
+				&success, font, this,
+				QString::fromUtf8(obs_frontend_get_locale_string(
+					"Basic.PropertiesWindow.SelectFont.WindowTitle")),
+				options);
+			if (!success)
+				return;
+			if (!textInputCustomStyle)
+				textInputCustomStyle = obs_data_create();
+			obs_data_set_string(textInputCustomStyle, "font-family",
+					    font.family().toUtf8().constData());
+			obs_data_set_int(textInputCustomStyle, "font-style",
+					 font.style());
+			obs_data_set_int(textInputCustomStyle, "font-weight",
+					 font.weight());
+			obs_data_set_int(textInputCustomStyle, "font-size",
+					 font.pointSize());
+			ApplyCustomTextInputStyle();
+		});
+		m->addAction(
+			QString::fromUtf8(obs_module_text("BackgroundColor")),
+			[this]() {
+				QColor color;
+				if (textInputCustomStyle) {
+					auto color_int = obs_data_get_int(
+						textInputCustomStyle,
+						"background-color");
+					if (color_int)
+						color = color_from_int(
+							color_int);
+				}
+				QColorDialog::ColorDialogOptions options;
+#ifdef __linux__
+				// TODO: Revisit hang on Ubuntu with native dialog
+				options |= QColorDialog::DontUseNativeDialog;
+#endif
+				color = QColorDialog::getColor(
+					color, this,
+					QString::fromUtf8(obs_module_text(
+						"BackgroundColor")),
+					options);
+
+				if (!color.isValid())
+					return;
+				color.setAlpha(255);
+				if (!textInputCustomStyle)
+					textInputCustomStyle =
+						obs_data_create();
+				obs_data_set_int(textInputCustomStyle,
+						 "background-color",
+						 color_to_int(color));
+				ApplyCustomTextInputStyle();
+			});
+		m->addAction(QString::fromUtf8(obs_module_text("TextColor")),
+			     [this]() {
+				     QColor color;
+				     if (textInputCustomStyle) {
+					     auto color_int = obs_data_get_int(
+						     textInputCustomStyle,
+						     "text-color");
+					     if (color_int)
+						     color = color_from_int(
+							     color_int);
+				     }
+				     QColorDialog::ColorDialogOptions options;
+#ifdef __linux__
+				     // TODO: Revisit hang on Ubuntu with native dialog
+				     options |=
+					     QColorDialog::DontUseNativeDialog;
+#endif
+				     color = QColorDialog::getColor(
+					     color, this,
+					     QString::fromUtf8(obs_module_text(
+						     "TextColor")),
+					     options);
+
+				     if (!color.isValid())
+					     return;
+				     color.setAlpha(255);
+				     if (!textInputCustomStyle)
+					     textInputCustomStyle =
+						     obs_data_create();
+				     obs_data_set_int(textInputCustomStyle,
+						      "text-color",
+						      color_to_int(color));
+				     ApplyCustomTextInputStyle();
+			     });
+		m->addSeparator();
+		m->addAction(QString::fromUtf8(obs_module_text("Clear")),
+			     [this]() {
+				     if (!textInputCustomStyle)
+					     return;
+				     obs_data_release(textInputCustomStyle);
+				     textInputCustomStyle = nullptr;
+				     ApplyCustomTextInputStyle();
+			     });
+		menu->exec(QCursor::pos());
+		delete menu;
+	});
 
 	if (auto *settings = source ? obs_source_get_settings(source)
 				    : nullptr) {
@@ -1961,6 +2120,60 @@ void SourceDock::DisableTextInput()
 bool SourceDock::TextInputEnabled()
 {
 	return textInput != nullptr && textInput->isVisibleTo(this);
+}
+
+obs_data_t *SourceDock::GetCustomTextInputStyle()
+{
+	return textInputCustomStyle;
+}
+
+void SourceDock::SetCustomTextInputStyle(obs_data_t *ns)
+{
+	obs_data_release(textInputCustomStyle);
+	obs_data_addref(ns);
+	textInputCustomStyle = ns;
+	ApplyCustomTextInputStyle();
+}
+
+void SourceDock::ApplyCustomTextInputStyle()
+{
+	if (!textInput)
+		return;
+	if (!textInputCustomStyle) {
+		textInput->setStyleSheet("");
+		return;
+	}
+	QString style = QString::fromUtf8("QPlainTextEdit { \n");
+	auto fam = obs_data_get_string(textInputCustomStyle, "font-family");
+	if (fam && strlen(fam))
+		style += QString("font-family: \"%1\";\n")
+				 .arg(QString::fromUtf8(fam));
+	auto st = obs_data_get_int(textInputCustomStyle, "font-style");
+	if (st == QFont::StyleItalic) {
+		style += "font-style: italic;\n";
+	}
+	auto w = obs_data_get_int(textInputCustomStyle, "font-weight");
+	if (w) {
+		style += QString("font-weight: %1;\n").arg(w);
+	}
+	auto s = obs_data_get_int(textInputCustomStyle, "font-size");
+	if (s)
+		style += QString("font-size: %1px;\n").arg(s);
+	auto color_int =
+		obs_data_get_int(textInputCustomStyle, "background-color");
+	if (color_int) {
+		auto color = color_from_int(color_int);
+		style += QString("background-color: %1;\n")
+				 .arg(color.name(QColor::HexRgb));
+	}
+	color_int = obs_data_get_int(textInputCustomStyle, "text-color");
+	if (color_int) {
+		auto color = color_from_int(color_int);
+		style +=
+			QString("color: %1;\n").arg(color.name(QColor::HexRgb));
+	}
+	style += QString::fromUtf8("}");
+	textInput->setStyleSheet(style);
 }
 
 void SourceDock::SetSource(const OBSSource source_)
