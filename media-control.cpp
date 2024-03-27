@@ -1,4 +1,5 @@
 #include "media-control.hpp"
+#include <obs-module.h>
 #include <QToolTip>
 #include <QMainWindow>
 #include <QVBoxLayout>
@@ -7,6 +8,7 @@
 #include <QPushButton>
 #include <QStyle>
 #include <QToolTip>
+#include <QMenu>
 
 #ifndef QT_UTF8
 #define QT_UTF8(str) QString::fromUtf8(str)
@@ -38,14 +40,23 @@ MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 	sliderLayout->setContentsMargins(0, 0, 0, 0);
 	sliderLayout->setSpacing(2);
 	timeLabel = new QLabel();
+	timeLabel->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(timeLabel, &QLabel::customContextMenuRequested, this,
+		&MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(timeLabel);
 	slider = new MediaSlider();
 	slider->setOrientation(Qt::Horizontal);
 	slider->setTracking(false);
 	slider->setMinimum(0);
 	slider->setMaximum(4096);
+	slider->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(slider, &MediaSlider::customContextMenuRequested, this,
+		&MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(slider);
 	durationLabel = new QLabel();
+	durationLabel->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(durationLabel, &QLabel::customContextMenuRequested, this,
+		&MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(durationLabel);
 
 	QHBoxLayout *nameLayout = new QHBoxLayout;
@@ -471,4 +482,21 @@ void MediaControl::on_previousButton_clicked()
 	if (source) {
 		obs_source_media_previous(source);
 	}
+}
+
+void MediaControl::timeContextMenuRequested()
+{
+	QMenu menu;
+	auto a = menu.addAction(
+		QString::fromUtf8(obs_module_text("ShowTimeDecimals")),
+		[this]() { showTimeDecimals = !showTimeDecimals; });
+	a->setCheckable(true);
+	a->setChecked(showTimeDecimals);
+	a = menu.addAction(
+		QString::fromUtf8(obs_module_text("ShowTimeRemaining")),
+		[this]() { showTimeRemaining = !showTimeRemaining; });
+	a->setCheckable(true);
+	a->setChecked(showTimeRemaining);
+
+	menu.exec(QCursor::pos());
 }

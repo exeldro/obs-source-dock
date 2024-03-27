@@ -60,6 +60,10 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					  it->VolControlsEnabled());
 			obs_data_set_bool(dock, "mediacontrols",
 					  it->MediaControlsEnabled());
+			obs_data_set_bool(dock, "showtimedecimals",
+					  it->GetShowMs());
+			obs_data_set_bool(dock, "showtimedremaining",
+					  it->GetShowTimeRemaining());
 			obs_data_set_bool(dock, "switchscene",
 					  it->SwitchSceneEnabled());
 			obs_data_set_bool(dock, "showactive",
@@ -230,6 +234,12 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					if (obs_data_get_bool(dock,
 							      "volcontrols"))
 						tmp->EnableVolControls();
+					tmp->SetShowMs(obs_data_get_bool(
+						dock, "showtimedecimals"));
+					tmp->SetShowTimeRemaining(
+						obs_data_get_bool(
+							dock,
+							"showtimedremaining"));
 					if (obs_data_get_bool(dock,
 							      "mediacontrols"))
 						tmp->EnableMediaControls();
@@ -1589,7 +1599,8 @@ void SourceDock::EnableMediaControls()
 		mediaControl->setVisible(true);
 		return;
 	}
-	mediaControl = new MediaControl(OBSGetWeakRef(source), true, true);
+	mediaControl = new MediaControl(OBSGetWeakRef(source), showTimeDecimals,
+					showTimeRemaining);
 	mediaControl->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	addWidget(mediaControl);
 }
@@ -1598,6 +1609,8 @@ void SourceDock::DisableMediaControls()
 {
 	if (!mediaControl)
 		return;
+	showTimeDecimals = mediaControl->GetShowMs();
+	showTimeRemaining = mediaControl->GetShowTimeRemaining();
 	mediaControl->SetSource(nullptr);
 	mediaControl->setVisible(false);
 }

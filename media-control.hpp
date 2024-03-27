@@ -34,6 +34,7 @@ private:
 	void StartTimer();
 	void StopTimer();
 	void RefreshControls();
+	void timeContextMenuRequested();
 
 	static void OBSMediaStopped(void *data, calldata_t *calldata);
 	static void OBSMediaPlay(void *data, calldata_t *calldata);
@@ -62,4 +63,6 @@ public:
 	~MediaControl();
 	OBSWeakSource GetSource();
 	void SetSource(OBSWeakSource source);
+	bool GetShowMs() { return showTimeDecimals; }
+	bool GetShowTimeRemaining() { return showTimeRemaining; }
 };

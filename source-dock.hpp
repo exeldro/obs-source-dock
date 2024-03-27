@@ -98,6 +98,8 @@ private:
 	SliderIgnoreScroll *slider = nullptr;
 	MuteCheckBox *mute = nullptr;
 	MediaControl *mediaControl = nullptr;
+	bool showTimeDecimals = true;
+	bool showTimeRemaining = true;
 	QWidget *volControl = nullptr;
 	bool switch_scene_enabled = false;
 	QLabel *activeLabel = nullptr;
@@ -176,6 +178,18 @@ public:
 	void EnableMediaControls();
 	void DisableMediaControls();
 	bool MediaControlsEnabled();
+	bool GetShowMs()
+	{
+		return mediaControl ? mediaControl->GetShowMs()
+				    : showTimeDecimals;
+	}
+	void SetShowMs(bool b) { showTimeDecimals = b; }
+	bool GetShowTimeRemaining()
+	{
+		return mediaControl ? mediaControl->GetShowTimeRemaining()
+				    : showTimeRemaining;
+	}
+	void SetShowTimeRemaining(bool b) { showTimeRemaining = b; }
 
 	void EnableSwitchScene();
 	void DisableSwitchScene();
