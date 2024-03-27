@@ -50,7 +50,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_bool(dock, "selected", it->GetSelected());
 			obs_data_set_string(dock, "title",
 					    QT_TO_UTF8(it->windowTitle()));
-			obs_data_set_bool(dock, "hidden", it->isHidden());
+			obs_data_set_bool(dock, "hidden",
+					  it->parentWidget()->isHidden());
 			obs_data_set_bool(dock, "preview",
 					  it->PreviewEnabled());
 			obs_data_set_bool(dock, "volmeter",

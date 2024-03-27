@@ -318,11 +318,6 @@ void SourceDockSettingsDialog::AddClicked()
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
 
-	if (visibleCheckBox->isChecked())
-		tmp->show();
-	else
-		tmp->hide();
-
 	source_docks.push_back(tmp);
 #if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 	auto t = title.toUtf8();
@@ -341,6 +336,12 @@ void SourceDockSettingsDialog::AddClicked()
 	auto *a = static_cast<QAction *>(obs_frontend_add_dock(dock));
 	tmp->setAction(a);
 #endif
+
+	if (visibleCheckBox->isChecked())
+		dock->show();
+	else
+		dock->hide();
+
 	if (!window_name.isEmpty()) {
 		main_window->addDockWidget(Qt::LeftDockWidgetArea, dock);
 		dock->setFloating(false);
@@ -402,7 +403,8 @@ void SourceDockSettingsDialog::RefreshTable()
 		dock = it;
 
 		auto *checkBox = new QCheckBox;
-		checkBox->setChecked(!dock->isHidden() && !parent->isHidden());
+		checkBox->setChecked(!dock->parentWidget()->isHidden() &&
+				     !parent->isHidden());
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
 			if (checkBox->isChecked()) {
 				dock->parentWidget()->show();
