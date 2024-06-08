@@ -102,6 +102,7 @@ private:
 	bool showTimeRemaining = true;
 	QWidget *volControl = nullptr;
 	bool switch_scene_enabled = false;
+	QFrame *activeFrame = nullptr;
 	QLabel *activeLabel = nullptr;
 	QWidget *sceneItems = nullptr;
 	QScrollArea *sceneItemsScrollArea = nullptr;
@@ -148,6 +149,7 @@ private slots:
 	void ActiveChanged();
 	void VisibilityChanged(int id);
 	void RefreshItems();
+	void SetActive(int active);
 
 public:
 	SourceDock(QString name, bool selected, QWidget *parent = nullptr);
@@ -158,7 +160,7 @@ public:
 
 	bool GetSelected() { return selected; }
 
-	void SetActive(int active);
+	
 
 	void setAction(QAction *action);
 
