@@ -70,7 +70,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			obs_data_set_string(dock, "geometry", it->saveGeometry().toBase64().constData());
 			obs_data_set_string(dock, "split", it->saveSplitState().toBase64().constData());
 			auto *p = dynamic_cast<QMainWindow *>(it->parent()->parent());
-			if (p == main_window) {
+			if (!p || p == main_window) {
 				obs_data_set_string(dock, "window", "");
 			} else {
 				QString wt = p->windowTitle();
@@ -78,7 +78,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 				const char *wtc = t.constData();
 				obs_data_set_string(dock, "window", wtc);
 			}
-			obs_data_set_int(dock, "dockarea", p->dockWidgetArea((QDockWidget *)it->parentWidget()));
+			if (p)
+				obs_data_set_int(dock, "dockarea", p->dockWidgetArea((QDockWidget *)it->parentWidget()));
 			obs_data_set_bool(dock, "floating", ((QDockWidget *)it->parentWidget())->isFloating());
 			obs_data_set_double(dock, "zoom", it->GetZoom());
 			obs_data_set_double(dock, "scrollx", it->GetScrollX());
@@ -197,7 +198,8 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					obs_data_release(st);
 
 #if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
-					obs_frontend_add_dock_by_id(title, title, tmp);
+					if (!obs_frontend_add_dock_by_id(title, title, tmp))
+						continue;
 					const auto d = static_cast<QDockWidget *>(tmp->parentWidget());
 #else
 					const auto d = new QDockWidget(main_window);
@@ -423,9 +425,13 @@ static void frontend_event(enum obs_frontend_event event, void *)
 	if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CLEANUP || event == OBS_FRONTEND_EVENT_EXIT) {
 		set_previous_scene_empty(nullptr, nullptr);
 		for (const auto &it : source_docks) {
-			delete (it);
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
+			obs_frontend_remove_dock(it->objectName().toUtf8().constData());
+#else
 			it->parentWidget()->close();
 			delete (it->parentWidget());
+			delete (it);
+#endif
 		}
 		source_docks.clear();
 		for (const auto &it : source_windows) {
@@ -545,16 +551,20 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
+#if LIBOBS_API_VER < MAKE_SEMANTIC_VERSION(30, 0, 0)
 	auto dock = static_cast<QDockWidget *>(parentWidget());
 	if (dock) {
+
 		auto tva = dock->toggleViewAction();
 		if (tva)
 			QObject::disconnect(tva, &QAction::toggled, nullptr, 0);
+
 	}
 	if (action) {
 		QObject::disconnect(action, &QAction::triggered, nullptr, 0);
 		delete action;
 	}
+#endif
 	DisableFilters();
 	DisableProperties();
 	DisableSceneItems();

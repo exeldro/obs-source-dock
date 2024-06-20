@@ -32,10 +32,7 @@ public:
 	OBSEventFilter(EventFilterFunc filter_) : filter(filter_) {}
 
 protected:
-	bool eventFilter(QObject *obj, QEvent *event)
-	{
-		return filter(obj, event);
-	}
+	bool eventFilter(QObject *obj, QEvent *event) { return filter(obj, event); }
 
 public:
 	EventFilterFunc filter;
@@ -69,8 +66,7 @@ class SliderIgnoreScroll : public QSlider {
 
 public:
 	SliderIgnoreScroll(QWidget *parent = nullptr);
-	SliderIgnoreScroll(Qt::Orientation orientation,
-			   QWidget *parent = nullptr);
+	SliderIgnoreScroll(Qt::Orientation orientation, QWidget *parent = nullptr);
 
 protected:
 	virtual void wheelEvent(QWheelEvent *event) override;
@@ -120,15 +116,12 @@ private:
 
 	static void DrawPreview(void *data, uint32_t cx, uint32_t cy);
 
-	static void OBSVolumeLevel(void *data,
-				   const float magnitude[MAX_AUDIO_CHANNELS],
-				   const float peak[MAX_AUDIO_CHANNELS],
+	static void OBSVolumeLevel(void *data, const float magnitude[MAX_AUDIO_CHANNELS], const float peak[MAX_AUDIO_CHANNELS],
 				   const float inputPeak[MAX_AUDIO_CHANNELS]);
 	static void OBSVolume(void *data, calldata_t *calldata);
 	static void OBSMute(void *data, calldata_t *calldata);
 	static void OBSActiveChanged(void *, calldata_t *);
-	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item,
-				 void *data);
+	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item, void *data);
 	int GetSceneItemCount(obs_scene_t *scene);
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
@@ -160,8 +153,6 @@ public:
 
 	bool GetSelected() { return selected; }
 
-	
-
 	void setAction(QAction *action);
 
 	void EnablePreview();
@@ -180,17 +171,9 @@ public:
 	void EnableMediaControls();
 	void DisableMediaControls();
 	bool MediaControlsEnabled();
-	bool GetShowMs()
-	{
-		return mediaControl ? mediaControl->GetShowMs()
-				    : showTimeDecimals;
-	}
+	bool GetShowMs() { return mediaControl ? mediaControl->GetShowMs() : showTimeDecimals; }
 	void SetShowMs(bool b) { showTimeDecimals = b; }
-	bool GetShowTimeRemaining()
-	{
-		return mediaControl ? mediaControl->GetShowTimeRemaining()
-				    : showTimeRemaining;
-	}
+	bool GetShowTimeRemaining() { return mediaControl ? mediaControl->GetShowTimeRemaining() : showTimeRemaining; }
 	void SetShowTimeRemaining(bool b) { showTimeRemaining = b; }
 
 	void EnableSwitchScene();
