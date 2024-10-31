@@ -1,9 +1,6 @@
 # --- Detect if the plugin is build out of tree or not ---
 if(CMAKE_PROJECT_NAME STREQUAL "obs-studio")
   set(BUILD_OUT_OF_TREE OFF)
-  if(OBS_CMAKE_VERSION VERSION_GREATER_EQUAL 3.0.0)
-    legacy_check()
-  endif()
 else()
   set(BUILD_OUT_OF_TREE ON)
   cmake_minimum_required(VERSION 3.18)
@@ -41,11 +38,17 @@ if(BUILD_OUT_OF_TREE)
 	find_package(libobs REQUIRED)
 	find_package(obs-frontend-api REQUIRED)
 	include(cmake/ObsPluginHelpers.cmake)
+	find_qt(COMPONENTS Widgets COMPONENTS_LINUX Gui)
 	set(OBS_FRONTEND_API_NAME "obs-frontend-api")
-  else()
-	  set(OBS_FRONTEND_API_NAME "frontend-api")
-  endif()
-  
+else()
+	if(OBS_VERSION VERSION_GREATER_EQUAL 30.1.0)
+		find_package(Qt6 COMPONENTS Core Widgets)
+	else()
+		find_qt(COMPONENTS Widgets COMPONENTS_LINUX Gui)
+	endif()
+	set(OBS_FRONTEND_API_NAME "frontend-api")
+endif()
+
 if(OS_WINDOWS)
 	get_filename_component(ISS_FILES_DIR "${CMAKE_BINARY_DIR}\\..\\package" ABSOLUTE)
 	file(TO_NATIVE_PATH "${ISS_FILES_DIR}" ISS_FILES_DIR)
@@ -70,15 +73,12 @@ elseif(OS_POSIX)
 	target_link_libraries(${PROJECT_NAME} Qt::GuiPrivate)
 endif()
 
-# lines if you want add Qt UI in your plugin
-find_qt(COMPONENTS Widgets COMPONENTS_LINUX Gui)
 set_target_properties(${PROJECT_NAME} PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
 
 target_link_libraries(${PROJECT_NAME}
 		OBS::${OBS_FRONTEND_API_NAME}
 		Qt::Widgets
 		OBS::libobs)
-
 
 if(BUILD_OUT_OF_TREE)
 	if(NOT LIB_OUT_DIR)
@@ -92,7 +92,7 @@ if(BUILD_OUT_OF_TREE)
 		LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${LIB_OUT_DIR})
 	install(DIRECTORY data/locale
 		DESTINATION ${CMAKE_INSTALL_PREFIX}/${DATA_OUT_DIR})
-		setup_plugin_target(${PROJECT_NAME})
+	setup_plugin_target(${PROJECT_NAME})
 else()
 	target_include_directories(${PROJECT_NAME} PRIVATE
 		"${CMAKE_SOURCE_DIR}/UI/obs-frontend-api")

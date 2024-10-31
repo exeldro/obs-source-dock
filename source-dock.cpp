@@ -1645,6 +1645,8 @@ void SourceDock::EnableSceneItems()
 {
 	obs_scene_t *scene = obs_scene_from_source(source);
 	if (!scene)
+		scene = obs_group_from_source(source);
+	if (!scene)
 		return;
 	if (!sceneItems) {
 		sceneItemsScrollArea = new QScrollArea;
@@ -1712,7 +1714,9 @@ void SourceDock::VisibilityChanged(int id)
 			continue;
 		if (id != w->property("id").toInt())
 			continue;
-		const auto scene = obs_scene_from_source(source);
+		auto scene = obs_scene_from_source(source);
+		if (!scene)
+			scene = obs_group_from_source(source);
 		obs_sceneitem_t *sceneitem = obs_scene_find_sceneitem_by_id(scene, id);
 
 		auto checkBox = dynamic_cast<QCheckBox *>(w);
@@ -2188,31 +2192,37 @@ bool SourceDock::restoreSplitState(const QByteArray &splitState)
 LockedCheckBox::LockedCheckBox()
 {
 	setProperty("lockCheckBox", true);
+	setProperty("class", "indicator-lock");
 }
 
 LockedCheckBox::LockedCheckBox(QWidget *parent) : QCheckBox(parent)
 {
 	setProperty("lockCheckBox", true);
+	setProperty("class", "indicator-lock");
 }
 
 VisibilityCheckBox::VisibilityCheckBox()
 {
 	setProperty("visibilityCheckBox", true);
+	setProperty("class", "indicator-visibility");
 }
 
 VisibilityCheckBox::VisibilityCheckBox(QWidget *parent) : QCheckBox(parent)
 {
 	setProperty("visibilityCheckBox", true);
+	setProperty("class", "indicator-visibility");
 }
 
 MuteCheckBox::MuteCheckBox()
 {
 	setProperty("muteCheckBox", true);
+	setProperty("class", "indicator-mute");
 }
 
 MuteCheckBox::MuteCheckBox(QWidget *parent) : QCheckBox(parent)
 {
 	setProperty("muteCheckBox", true);
+	setProperty("class", "indicator-mute");
 }
 
 SliderIgnoreScroll::SliderIgnoreScroll(QWidget *parent) : QSlider(parent)
