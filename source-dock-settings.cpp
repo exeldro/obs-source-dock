@@ -91,7 +91,11 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	mainLayout->setColumnStretch(0, 1);
 	mainLayout->setColumnStretch(1, 1);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(checkbox, &QCheckBox::checkStateChanged, [this]() { SelectAllChanged(); });
+#else
 	connect(checkbox, &QCheckBox::stateChanged, [this]() { SelectAllChanged(); });
+#endif
 
 	idx = 0;
 
@@ -161,27 +165,43 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	auto deleteButton = new QPushButton(QT_UTF8(obs_module_text("Delete")));
 	auto ltCheckBox = new QCheckBox(QT_UTF8("⌜"));
 	ltCheckBox->setChecked(parent->corner(Qt::TopLeftCorner) == Qt::LeftDockWidgetArea);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(ltCheckBox, &QCheckBox::checkStateChanged, [ltCheckBox]() {
+#else
 	connect(ltCheckBox, &QCheckBox::stateChanged, [ltCheckBox]() {
+#endif
 		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::TopLeftCorner, ltCheckBox->isChecked() ? Qt::LeftDockWidgetArea : Qt::TopDockWidgetArea);
 	});
 	auto rtCheckBox = new QCheckBox(QT_UTF8("⌝"));
 	rtCheckBox->setChecked(parent->corner(Qt::TopRightCorner) == Qt::RightDockWidgetArea);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(rtCheckBox, &QCheckBox::checkStateChanged, [rtCheckBox]() {
+#else
 	connect(rtCheckBox, &QCheckBox::stateChanged, [rtCheckBox]() {
+#endif
 		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::TopRightCorner,
 				       rtCheckBox->isChecked() ? Qt::RightDockWidgetArea : Qt::TopDockWidgetArea);
 	});
 	auto rbCheckBox = new QCheckBox(QT_UTF8("⌟"));
 	rbCheckBox->setChecked(parent->corner(Qt::BottomRightCorner) == Qt::RightDockWidgetArea);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(rbCheckBox, &QCheckBox::checkStateChanged, [rbCheckBox]() {
+#else
 	connect(rbCheckBox, &QCheckBox::stateChanged, [rbCheckBox]() {
+#endif
 		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::BottomRightCorner,
 				       rbCheckBox->isChecked() ? Qt::RightDockWidgetArea : Qt::BottomDockWidgetArea);
 	});
 	auto lbCheckBox = new QCheckBox(QT_UTF8("⌞"));
 	lbCheckBox->setChecked(parent->corner(Qt::BottomLeftCorner) == Qt::LeftDockWidgetArea);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(lbCheckBox, &QCheckBox::checkStateChanged, [lbCheckBox]() {
+#else
 	connect(lbCheckBox, &QCheckBox::stateChanged, [lbCheckBox]() {
+#endif
 		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::BottomLeftCorner,
 				       lbCheckBox->isChecked() ? Qt::LeftDockWidgetArea : Qt::BottomDockWidgetArea);
@@ -369,7 +389,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		auto *checkBox = new QCheckBox;
 		checkBox->setChecked(!dock->parentWidget()->isHidden() && !parent->isHidden());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->parentWidget()->show();
 				const auto parent = dynamic_cast<QMainWindow *>(dock->parent()->parent());
@@ -382,7 +406,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->PreviewEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnablePreview();
 				if (!dock->PreviewEnabled())
@@ -395,7 +423,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->VolMeterEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableVolMeter();
 				if (!dock->VolMeterEnabled())
@@ -408,7 +440,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->VolControlsEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableVolControls();
 				if (!dock->VolControlsEnabled())
@@ -421,7 +457,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->MediaControlsEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableMediaControls();
 				if (!dock->MediaControlsEnabled())
@@ -434,7 +474,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->SwitchSceneEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableSwitchScene();
 				if (!dock->SwitchSceneEnabled())
@@ -447,7 +491,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->ShowActiveEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableShowActive();
 				if (!dock->ShowActiveEnabled())
@@ -460,7 +508,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->PropertiesEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableProperties();
 				if (!dock->PropertiesEnabled())
@@ -473,7 +525,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->FiltersEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableFilters();
 				if (!dock->FiltersEnabled())
@@ -486,7 +542,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->TextInputEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableTextInput();
 				if (!dock->TextInputEnabled())
@@ -499,7 +559,11 @@ void SourceDockSettingsDialog::RefreshTable()
 
 		checkBox = new QCheckBox;
 		checkBox->setChecked(dock->SceneItemsEnabled());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		connect(checkBox, &QCheckBox::checkStateChanged, [checkBox, dock]() {
+#else
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
+#endif
 			if (checkBox->isChecked()) {
 				dock->EnableSceneItems();
 				if (!dock->SceneItemsEnabled())

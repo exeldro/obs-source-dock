@@ -1476,7 +1476,11 @@ void SourceDock::EnableVolControls()
 
 	locked->setStyleSheet("background: none");
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(locked, &QCheckBox::checkStateChanged, this, &SourceDock::LockVolumeControl, Qt::DirectConnection);
+#else
 	connect(locked, &QCheckBox::stateChanged, this, &SourceDock::LockVolumeControl, Qt::DirectConnection);
+#endif
 
 	slider = new SliderIgnoreScroll(Qt::Horizontal);
 	slider->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -1488,7 +1492,11 @@ void SourceDock::EnableVolControls()
 
 	mute = new MuteCheckBox();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+	connect(mute, &QCheckBox::checkStateChanged, this, &SourceDock::MuteVolumeControl, Qt::DirectConnection);
+#else
 	connect(mute, &QCheckBox::stateChanged, this, &SourceDock::MuteVolumeControl, Qt::DirectConnection);
+#endif
 
 	if (source) {
 		const auto sh = obs_source_get_signal_handler(source);
