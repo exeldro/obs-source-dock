@@ -91,8 +91,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	mainLayout->setColumnStretch(0, 1);
 	mainLayout->setColumnStretch(1, 1);
 
-	connect(checkbox, &QCheckBox::stateChanged,
-		[this]() { SelectAllChanged(); });
+	connect(checkbox, &QCheckBox::stateChanged, [this]() { SelectAllChanged(); });
 
 	idx = 0;
 
@@ -102,14 +101,12 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	completer->setFilterMode(Qt::MatchContains);
 	completer->setCompletionMode(QCompleter::PopupCompletion);
 	sourceCombo->addItem("", QByteArray(""));
-	sourceCombo->addItem(QT_UTF8(obs_module_text("CurrentSelectedSource")),
-			     QByteArray("CurrentSelectedSource"));
+	sourceCombo->addItem(QT_UTF8(obs_module_text("CurrentSelectedSource")), QByteArray("CurrentSelectedSource"));
 	obs_enum_scenes(AddSource, sourceCombo);
 	obs_enum_sources(AddSource, sourceCombo);
 	mainLayout->addWidget(sourceCombo, 1, idx++);
 
-	connect(sourceCombo, SIGNAL(editTextChanged(const QString &)),
-		SLOT(RefreshTable()));
+	connect(sourceCombo, SIGNAL(editTextChanged(const QString &)), SLOT(RefreshTable()));
 
 	mainLayout->addWidget(titleEdit, 1, idx++);
 
@@ -147,8 +144,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 
 	auto controlArea = new QWidget;
 	controlArea->setLayout(mainLayout);
-	controlArea->setSizePolicy(QSizePolicy::Preferred,
-				   QSizePolicy::Preferred);
+	controlArea->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
 	auto vlayout = new QVBoxLayout;
 	vlayout->addWidget(controlArea);
@@ -164,48 +160,31 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	auto closeButton = new QPushButton(QT_UTF8(obs_module_text("Close")));
 	auto deleteButton = new QPushButton(QT_UTF8(obs_module_text("Delete")));
 	auto ltCheckBox = new QCheckBox(QT_UTF8("⌜"));
-	ltCheckBox->setChecked(parent->corner(Qt::TopLeftCorner) ==
-			       Qt::LeftDockWidgetArea);
+	ltCheckBox->setChecked(parent->corner(Qt::TopLeftCorner) == Qt::LeftDockWidgetArea);
 	connect(ltCheckBox, &QCheckBox::stateChanged, [ltCheckBox]() {
-		auto main_window = static_cast<QMainWindow *>(
-			obs_frontend_get_main_window());
-		main_window->setCorner(Qt::TopLeftCorner,
-				       ltCheckBox->isChecked()
-					       ? Qt::LeftDockWidgetArea
-					       : Qt::TopDockWidgetArea);
+		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
+		main_window->setCorner(Qt::TopLeftCorner, ltCheckBox->isChecked() ? Qt::LeftDockWidgetArea : Qt::TopDockWidgetArea);
 	});
 	auto rtCheckBox = new QCheckBox(QT_UTF8("⌝"));
-	rtCheckBox->setChecked(parent->corner(Qt::TopRightCorner) ==
-			       Qt::RightDockWidgetArea);
+	rtCheckBox->setChecked(parent->corner(Qt::TopRightCorner) == Qt::RightDockWidgetArea);
 	connect(rtCheckBox, &QCheckBox::stateChanged, [rtCheckBox]() {
-		auto main_window = static_cast<QMainWindow *>(
-			obs_frontend_get_main_window());
+		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::TopRightCorner,
-				       rtCheckBox->isChecked()
-					       ? Qt::RightDockWidgetArea
-					       : Qt::TopDockWidgetArea);
+				       rtCheckBox->isChecked() ? Qt::RightDockWidgetArea : Qt::TopDockWidgetArea);
 	});
 	auto rbCheckBox = new QCheckBox(QT_UTF8("⌟"));
-	rbCheckBox->setChecked(parent->corner(Qt::BottomRightCorner) ==
-			       Qt::RightDockWidgetArea);
+	rbCheckBox->setChecked(parent->corner(Qt::BottomRightCorner) == Qt::RightDockWidgetArea);
 	connect(rbCheckBox, &QCheckBox::stateChanged, [rbCheckBox]() {
-		auto main_window = static_cast<QMainWindow *>(
-			obs_frontend_get_main_window());
+		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::BottomRightCorner,
-				       rbCheckBox->isChecked()
-					       ? Qt::RightDockWidgetArea
-					       : Qt::BottomDockWidgetArea);
+				       rbCheckBox->isChecked() ? Qt::RightDockWidgetArea : Qt::BottomDockWidgetArea);
 	});
 	auto lbCheckBox = new QCheckBox(QT_UTF8("⌞"));
-	lbCheckBox->setChecked(parent->corner(Qt::BottomLeftCorner) ==
-			       Qt::LeftDockWidgetArea);
+	lbCheckBox->setChecked(parent->corner(Qt::BottomLeftCorner) == Qt::LeftDockWidgetArea);
 	connect(lbCheckBox, &QCheckBox::stateChanged, [lbCheckBox]() {
-		auto main_window = static_cast<QMainWindow *>(
-			obs_frontend_get_main_window());
+		auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		main_window->setCorner(Qt::BottomLeftCorner,
-				       lbCheckBox->isChecked()
-					       ? Qt::LeftDockWidgetArea
-					       : Qt::BottomDockWidgetArea);
+				       lbCheckBox->isChecked() ? Qt::LeftDockWidgetArea : Qt::BottomDockWidgetArea);
 	});
 	auto bottomLayout = new QHBoxLayout;
 	bottomLayout->addWidget(deleteButton, 0, Qt::AlignLeft);
@@ -215,8 +194,7 @@ SourceDockSettingsDialog::SourceDockSettingsDialog(QMainWindow *parent)
 	bottomLayout->addWidget(lbCheckBox, 0, Qt::AlignCenter);
 	bottomLayout->addWidget(closeButton, 0, Qt::AlignRight);
 
-	connect(deleteButton, &QPushButton::clicked,
-		[this]() { DeleteClicked(); });
+	connect(deleteButton, &QPushButton::clicked, [this]() { DeleteClicked(); });
 	connect(closeButton, &QPushButton::clicked, [this]() { close(); });
 
 	vlayout = new QVBoxLayout;
@@ -242,8 +220,7 @@ QMainWindow *GetSourceWindowByTitle(const QString window_name)
 			return it;
 		}
 	}
-	const auto main_window =
-		static_cast<QMainWindow *>(obs_frontend_get_main_window());
+	const auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	auto window = new QMainWindow();
 	window->setWindowTitle(window_name);
 	const auto label = new QLabel(window);
@@ -254,14 +231,10 @@ QMainWindow *GetSourceWindowByTitle(const QString window_name)
 	l->addWidget(label);
 	w->setLayout(l);
 	window->setCentralWidget(w);
-	window->setCorner(Qt::TopLeftCorner,
-			  main_window->corner(Qt::TopLeftCorner));
-	window->setCorner(Qt::TopRightCorner,
-			  main_window->corner(Qt::TopRightCorner));
-	window->setCorner(Qt::BottomRightCorner,
-			  main_window->corner(Qt::BottomRightCorner));
-	window->setCorner(Qt::BottomLeftCorner,
-			  main_window->corner(Qt::BottomLeftCorner));
+	window->setCorner(Qt::TopLeftCorner, main_window->corner(Qt::TopLeftCorner));
+	window->setCorner(Qt::TopRightCorner, main_window->corner(Qt::TopRightCorner));
+	window->setCorner(Qt::BottomRightCorner, main_window->corner(Qt::BottomRightCorner));
+	window->setCorner(Qt::BottomLeftCorner, main_window->corner(Qt::BottomLeftCorner));
 	window->show();
 	source_windows.push_back(window);
 	return window;
@@ -291,8 +264,7 @@ void SourceDockSettingsDialog::AddClicked()
 	auto window_name = windowEdit->text();
 	QMainWindow *main_window = GetSourceWindowByTitle(window_name);
 	if (main_window == nullptr)
-		main_window = static_cast<QMainWindow *>(
-			obs_frontend_get_main_window());
+		main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 
 	auto *tmp = new SourceDock(title, source == nullptr, main_window);
 	if (source)
@@ -328,8 +300,7 @@ void SourceDockSettingsDialog::AddClicked()
 	dock->setObjectName(title);
 	dock->setWindowTitle(title);
 	dock->setWidget(tmp);
-	dock->setFeatures(QDockWidget::DockWidgetMovable |
-			  QDockWidget::DockWidgetFloatable);
+	dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
 	dock->setFloating(true);
 	//dock->hide();
 
@@ -358,8 +329,7 @@ void SourceDockSettingsDialog::AddClicked()
 void SourceDockSettingsDialog::RefreshTable()
 {
 	for (auto row = mainLayout->rowCount() - 1; row >= 2; row--) {
-		for (auto col = mainLayout->columnCount() - 1; col >= 0;
-		     col--) {
+		for (auto col = mainLayout->columnCount() - 1; col >= 0; col--) {
 			auto *item = mainLayout->itemAtPosition(row, col);
 			if (item) {
 				mainLayout->removeItem(item);
@@ -374,42 +344,35 @@ void SourceDockSettingsDialog::RefreshTable()
 	const auto title = titleEdit->text();
 	const auto window = windowEdit->text();
 	for (const auto &it : source_docks) {
-		if (!sourceName.isEmpty() &&
-		    !it->objectName().contains(sourceName, Qt::CaseInsensitive))
+		if (!sourceName.isEmpty() && !it->objectName().contains(sourceName, Qt::CaseInsensitive))
 			continue;
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
-		const auto parent =
-			dynamic_cast<QMainWindow *>(it->parent()->parent());
+		const auto parent = dynamic_cast<QMainWindow *>(it->parent()->parent());
 		if (!window.isEmpty()) {
 			auto w = parent->windowTitle();
 			if (!w.contains(window, Qt::CaseInsensitive))
 				continue;
 		}
 		auto col = 0;
-		auto *label = new QLabel(QString::fromUtf8(
-			obs_source_get_name(it->GetSource())));
+		auto *label = new QLabel(QString::fromUtf8(obs_source_get_name(it->GetSource())));
 		mainLayout->addWidget(label, row, col++);
 
 		label = new QLabel(t);
 		mainLayout->addWidget(label, row, col++);
 
-		label = new QLabel(parent == obs_frontend_get_main_window()
-					   ? ""
-					   : parent->windowTitle());
+		label = new QLabel(parent == obs_frontend_get_main_window() ? "" : parent->windowTitle());
 		mainLayout->addWidget(label, row, col++);
 
 		dock = it;
 
 		auto *checkBox = new QCheckBox;
-		checkBox->setChecked(!dock->parentWidget()->isHidden() &&
-				     !parent->isHidden());
+		checkBox->setChecked(!dock->parentWidget()->isHidden() && !parent->isHidden());
 		connect(checkBox, &QCheckBox::stateChanged, [checkBox, dock]() {
 			if (checkBox->isChecked()) {
 				dock->parentWidget()->show();
-				const auto parent = dynamic_cast<QMainWindow *>(
-					dock->parent()->parent());
+				const auto parent = dynamic_cast<QMainWindow *>(dock->parent()->parent());
 				parent->show();
 			} else {
 				dock->parentWidget()->hide();
@@ -610,15 +573,12 @@ void SourceDockSettingsDialog::DeleteClicked()
 		if (!label)
 			continue;
 		auto title = label->text();
-		for (auto it = source_docks.begin();
-		     it != source_docks.end();) {
+		for (auto it = source_docks.begin(); it != source_docks.end();) {
 			if ((*it)->windowTitle() != title) {
 				++it;
 				continue;
 			}
-			if (!(*it)->GetSelected() &&
-			    sourceName !=
-				    obs_source_get_name((*it)->GetSource())) {
+			if (!(*it)->GetSelected() && sourceName != obs_source_get_name((*it)->GetSource())) {
 				++it;
 				continue;
 			}
@@ -657,10 +617,7 @@ bool SourceDockSettingsDialog::AddSource(void *data, obs_source_t *source)
 
 VerticalLabel::VerticalLabel(QWidget *parent) : QLabel(parent) {}
 
-VerticalLabel::VerticalLabel(const QString &text, QWidget *parent)
-	: QLabel(text, parent)
-{
-}
+VerticalLabel::VerticalLabel(const QString &text, QWidget *parent) : QLabel(text, parent) {}
 
 void VerticalLabel::paintEvent(QPaintEvent *)
 {

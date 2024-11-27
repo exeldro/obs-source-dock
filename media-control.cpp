@@ -17,8 +17,7 @@
 #define QT_TO_UTF8(str) str.toUtf8().constData()
 #endif
 
-MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
-			   bool showTimeRemaining_)
+MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_, bool showTimeRemaining_)
 	: showTimeDecimals(showTimeDecimals_),
 	  showTimeRemaining(showTimeRemaining_)
 {
@@ -41,8 +40,7 @@ MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 	sliderLayout->setSpacing(2);
 	timeLabel = new QLabel();
 	timeLabel->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(timeLabel, &QLabel::customContextMenuRequested, this,
-		&MediaControl::timeContextMenuRequested);
+	connect(timeLabel, &QLabel::customContextMenuRequested, this, &MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(timeLabel);
 	slider = new MediaSlider();
 	slider->setOrientation(Qt::Horizontal);
@@ -50,13 +48,11 @@ MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 	slider->setMinimum(0);
 	slider->setMaximum(4096);
 	slider->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(slider, &MediaSlider::customContextMenuRequested, this,
-		&MediaControl::timeContextMenuRequested);
+	connect(slider, &MediaSlider::customContextMenuRequested, this, &MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(slider);
 	durationLabel = new QLabel();
 	durationLabel->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(durationLabel, &QLabel::customContextMenuRequested, this,
-		&MediaControl::timeContextMenuRequested);
+	connect(durationLabel, &QLabel::customContextMenuRequested, this, &MediaControl::timeContextMenuRequested);
 	sliderLayout->addWidget(durationLabel);
 
 	QHBoxLayout *nameLayout = new QHBoxLayout;
@@ -116,21 +112,15 @@ MediaControl::MediaControl(OBSWeakSource source_, bool showTimeDecimals_,
 	slider->setEnabled(false);
 
 	connect(slider, SIGNAL(sliderPressed()), this, SLOT(SliderClicked()));
-	connect(slider, SIGNAL(mediaSliderHovered(int)), this,
-		SLOT(SliderHovered(int)));
+	connect(slider, SIGNAL(mediaSliderHovered(int)), this, SLOT(SliderHovered(int)));
 	connect(slider, SIGNAL(sliderReleased()), this, SLOT(SliderReleased()));
 	connect(slider, SIGNAL(sliderMoved(int)), this, SLOT(SliderMoved(int)));
 
-	connect(restartButton, SIGNAL(clicked()), this,
-		SLOT(on_restartButton_clicked()));
-	connect(playPauseButton, SIGNAL(clicked()), this,
-		SLOT(on_playPauseButton_clicked()));
-	connect(stopButton, SIGNAL(clicked()), this,
-		SLOT(on_stopButton_clicked()));
-	connect(nextButton, SIGNAL(clicked()), this,
-		SLOT(on_nextButton_clicked()));
-	connect(previousButton, SIGNAL(clicked()), this,
-		SLOT(on_previousButton_clicked()));
+	connect(restartButton, SIGNAL(clicked()), this, SLOT(on_restartButton_clicked()));
+	connect(playPauseButton, SIGNAL(clicked()), this, SLOT(on_playPauseButton_clicked()));
+	connect(stopButton, SIGNAL(clicked()), this, SLOT(on_stopButton_clicked()));
+	connect(nextButton, SIGNAL(clicked()), this, SLOT(on_nextButton_clicked()));
+	connect(previousButton, SIGNAL(clicked()), this, SLOT(on_previousButton_clicked()));
 
 	SetSource(source_);
 	RefreshControls();
@@ -147,24 +137,18 @@ void MediaControl::SetSource(OBSWeakSource weakSource_)
 	if (source) {
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
 		signal_handler_disconnect(sh, "media_play", OBSMediaPlay, this);
-		signal_handler_disconnect(sh, "media_pause", OBSMediaPause,
-					  this);
-		signal_handler_disconnect(sh, "media_restart", OBSMediaPlay,
-					  this);
-		signal_handler_disconnect(sh, "media_stopped", OBSMediaStopped,
-					  this);
-		signal_handler_disconnect(sh, "media_started", OBSMediaStarted,
-					  this);
-		signal_handler_disconnect(sh, "media_ended", OBSMediaStopped,
-					  this);
+		signal_handler_disconnect(sh, "media_pause", OBSMediaPause, this);
+		signal_handler_disconnect(sh, "media_restart", OBSMediaPlay, this);
+		signal_handler_disconnect(sh, "media_stopped", OBSMediaStopped, this);
+		signal_handler_disconnect(sh, "media_started", OBSMediaStarted, this);
+		signal_handler_disconnect(sh, "media_ended", OBSMediaStopped, this);
 	}
 	weakSource = weakSource_;
 
 	source = OBSGetStrongRef(weakSource);
 	if (source) {
 		float time = (float)obs_source_media_get_time(source) / 1000.0f;
-		float duration =
-			(float)obs_source_media_get_duration(source) / 1000.0f;
+		float duration = (float)obs_source_media_get_duration(source) / 1000.0f;
 		if (showTimeRemaining) {
 			timeLabel->setText(FormatSeconds(duration));
 			durationLabel->setText(FormatSeconds(duration - time));
@@ -178,12 +162,9 @@ void MediaControl::SetSource(OBSWeakSource weakSource_)
 		signal_handler_connect(sh, "media_play", OBSMediaPlay, this);
 		signal_handler_connect(sh, "media_pause", OBSMediaPause, this);
 		signal_handler_connect(sh, "media_restart", OBSMediaPlay, this);
-		signal_handler_connect(sh, "media_stopped", OBSMediaStopped,
-				       this);
-		signal_handler_connect(sh, "media_started", OBSMediaStarted,
-				       this);
-		signal_handler_connect(sh, "media_ended", OBSMediaStopped,
-				       this);
+		signal_handler_connect(sh, "media_stopped", OBSMediaStopped, this);
+		signal_handler_connect(sh, "media_started", OBSMediaStarted, this);
+		signal_handler_connect(sh, "media_ended", OBSMediaStopped, this);
 	}
 	RefreshControls();
 }
@@ -252,11 +233,8 @@ void MediaControl::SliderReleased()
 	if (seekTimer->isActive()) {
 		seekTimer->stop();
 		if (lastSeek != seek) {
-			const float percent =
-				(float)seek / float(slider->maximum());
-			const int64_t seekTo =
-				(float)percent *
-				(float)obs_source_media_get_duration(source);
+			const float percent = (float)seek / float(slider->maximum());
+			const int64_t seekTo = (float)percent * (float)obs_source_media_get_duration(source);
 			obs_source_media_set_time(source, seekTo);
 		}
 
@@ -274,8 +252,7 @@ void MediaControl::SliderHovered(int val)
 {
 	float percent = (float)val / float(slider->maximum());
 	OBSSource source = OBSGetStrongRef(weakSource);
-	float seconds = (showTimeRemaining ? 1.0 - percent : percent) *
-			(obs_source_media_get_duration(source) / 1000.0f);
+	float seconds = (showTimeRemaining ? 1.0 - percent : percent) * (obs_source_media_get_duration(source) / 1000.0f);
 
 	QToolTip::showText(QCursor::pos(), FormatSeconds(seconds), this);
 }
@@ -292,11 +269,8 @@ void MediaControl::SeekTimerCallback()
 	if (lastSeek != seek) {
 		OBSSource source = OBSGetStrongRef(weakSource);
 		if (source) {
-			const float percent =
-				(float)seek / float(slider->maximum());
-			const int64_t seekTo =
-				(float)percent *
-				(float)obs_source_media_get_duration(source);
+			const float percent = (float)seek / float(slider->maximum());
+			const int64_t seekTo = (float)percent * (float)obs_source_media_get_duration(source);
 			obs_source_media_set_time(source, seekTo);
 		}
 		lastSeek = seek;
@@ -311,15 +285,13 @@ QString MediaControl::FormatSeconds(float totalSeconds)
 	if (totalWholeSeconds < 0)
 		totalWholeSeconds = 0;
 	int wholeSeconds = (int)totalWholeSeconds % 60;
-	float seconds =
-		(float)wholeSeconds + (totalSeconds - (float)totalWholeSeconds);
+	float seconds = (float)wholeSeconds + (totalSeconds - (float)totalWholeSeconds);
 	int totalMinutes = totalWholeSeconds / 60;
 	int minutes = totalMinutes % 60;
 	int hours = totalMinutes / 60;
 
 	if (hours > 0)
-		return QString::asprintf("%02d:%02d:%02d", hours, minutes,
-					 wholeSeconds);
+		return QString::asprintf("%02d:%02d:%02d", hours, minutes, wholeSeconds);
 	if (showTimeDecimals)
 		return QString::asprintf("%02d:%05.2f", minutes, seconds);
 	return QString::asprintf("%02d:%02d", minutes, wholeSeconds);
@@ -420,9 +392,7 @@ void MediaControl::SetSliderPosition()
 	float time = (float)obs_source_media_get_time(source) / 1000.0f;
 	float duration = (float)obs_source_media_get_duration(source) / 1000.0f;
 
-	float sliderPosition =
-		duration == 0.0f ? 0.0f
-				 : (time / duration) * (float)slider->maximum();
+	float sliderPosition = duration == 0.0f ? 0.0f : (time / duration) * (float)slider->maximum();
 
 	slider->setValue((int)sliderPosition);
 
@@ -495,14 +465,12 @@ void MediaControl::on_previousButton_clicked()
 void MediaControl::timeContextMenuRequested()
 {
 	QMenu menu;
-	auto a = menu.addAction(
-		QString::fromUtf8(obs_module_text("ShowTimeDecimals")),
-		[this]() { showTimeDecimals = !showTimeDecimals; });
+	auto a = menu.addAction(QString::fromUtf8(obs_module_text("ShowTimeDecimals")),
+				[this]() { showTimeDecimals = !showTimeDecimals; });
 	a->setCheckable(true);
 	a->setChecked(showTimeDecimals);
-	a = menu.addAction(
-		QString::fromUtf8(obs_module_text("ShowTimeRemaining")),
-		[this]() { showTimeRemaining = !showTimeRemaining; });
+	a = menu.addAction(QString::fromUtf8(obs_module_text("ShowTimeRemaining")),
+			   [this]() { showTimeRemaining = !showTimeRemaining; });
 	a->setCheckable(true);
 	a->setChecked(showTimeRemaining);
 

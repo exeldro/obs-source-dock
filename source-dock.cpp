@@ -558,7 +558,6 @@ SourceDock::~SourceDock()
 		auto tva = dock->toggleViewAction();
 		if (tva)
 			QObject::disconnect(tva, &QAction::toggled, nullptr, 0);
-
 	}
 	if (action) {
 		QObject::disconnect(action, &QAction::triggered, nullptr, 0);

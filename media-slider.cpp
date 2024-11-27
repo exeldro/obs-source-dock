@@ -4,7 +4,6 @@
 
 #include "slider-absoluteset-style.hpp"
 
-
 MediaSlider::MediaSlider(QWidget *parent) : QSlider(parent)
 {
 	setMouseTracking(true);
