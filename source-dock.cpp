@@ -31,6 +31,10 @@
 #define ACTIVE_PREVIEW 1
 #define ACTIVE_PROGRAM 2
 #define ACTIVE_DOWNSTREAM_KEYER 3
+#define ACTIVE_STREAMING 4
+#define ACTIVE_RECORDING 5
+#define ACTIVE_RECORDING_AND_STREAMING 6
+#define ACTIVE_RECORDING_PAUSED 7
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Exeldro");
@@ -415,6 +419,21 @@ void update_active(void *param)
 	}
 	for (const auto &it : source_docks) {
 		int active = source_active[it->GetSource().Get()];
+		if (active == ACTIVE_PROGRAM) {
+			if (obs_frontend_streaming_active()) {
+				if (obs_frontend_recording_active() && !obs_frontend_recording_paused()) {
+					active = ACTIVE_RECORDING_AND_STREAMING;
+				} else {
+					active = ACTIVE_STREAMING;
+				}
+			} else if (obs_frontend_recording_active()) {
+				if (obs_frontend_recording_paused()) {
+					active = ACTIVE_RECORDING_PAUSED;
+				} else {
+					active = ACTIVE_RECORDING;
+				}
+			}
+		}
 		QMetaObject::invokeMethod(it, "SetActive", Qt::QueuedConnection, Q_ARG(int, active));
 		//it->SetActive(source_active[it->GetSource().Get()]);
 	}
@@ -469,6 +488,13 @@ static void frontend_event(enum obs_frontend_event event, void *)
 		}
 		update_selected_source();
 
+		obs_queue_task(obs_in_task_thread(OBS_TASK_GRAPHICS) ? OBS_TASK_UI : OBS_TASK_GRAPHICS, update_active, nullptr,
+			       false);
+	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTING || event == OBS_FRONTEND_EVENT_STREAMING_STARTED ||
+		   event == OBS_FRONTEND_EVENT_STREAMING_STOPPING || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED ||
+		   event == OBS_FRONTEND_EVENT_RECORDING_STARTING || event == OBS_FRONTEND_EVENT_RECORDING_STARTED ||
+		   event == OBS_FRONTEND_EVENT_RECORDING_STOPPING || event == OBS_FRONTEND_EVENT_RECORDING_STOPPED ||
+		   event == OBS_FRONTEND_EVENT_RECORDING_PAUSED || event == OBS_FRONTEND_EVENT_RECORDING_UNPAUSED) {
 		obs_queue_task(obs_in_task_thread(OBS_TASK_GRAPHICS) ? OBS_TASK_UI : OBS_TASK_GRAPHICS, update_active, nullptr,
 			       false);
 	}
@@ -706,8 +732,7 @@ void SourceDock::ActiveChanged()
 {
 	int active = ACTIVE_NONE;
 
-	auto *preview = obs_frontend_get_current_preview_scene();
-	if (preview) {
+	if (auto *preview = obs_frontend_get_current_preview_scene()) {
 		if (source == preview) {
 			active = ACTIVE_PREVIEW;
 		}
@@ -780,40 +805,83 @@ void SourceDock::ActiveChanged()
 		active = t.second;
 		obs_source_release(program);
 	}
-
+	if (active == ACTIVE_PROGRAM) {
+		if (obs_frontend_streaming_active()) {
+			if (obs_frontend_recording_active() && !obs_frontend_recording_paused()) {
+				active = ACTIVE_RECORDING_AND_STREAMING;
+			} else {
+				active = ACTIVE_STREAMING;
+			}
+		} else if (obs_frontend_recording_active()) {
+			if (obs_frontend_recording_paused()) {
+				active = ACTIVE_RECORDING_PAUSED;
+			} else {
+				active = ACTIVE_RECORDING;
+			}
+		}
+	}
 	SetActive(active);
 }
 
 void SourceDock::SetActive(int active)
 {
 	if (activeFrame) {
-		if (active == ACTIVE_PROGRAM) {
+		if (active == ACTIVE_STREAMING) {
+			activeFrame->setStyleSheet("QFrame{background-color: #00FFFF;}"); // cyan
+		} else if (active == ACTIVE_RECORDING_AND_STREAMING) {
+			activeFrame->setStyleSheet("QFrame{background-color: #FF00FF;}"); // magenta
+		} else if (active == ACTIVE_RECORDING) {
+			activeFrame->setStyleSheet("QFrame{background-color: #FF0000;}"); // red
+		} else if (active == ACTIVE_RECORDING_PAUSED) {
+			activeFrame->setStyleSheet("QFrame{background-color: #FFFF00;}"); // yellow
+		} else if (active == ACTIVE_PROGRAM) {
 			if (obs_frontend_preview_program_mode_active()) {
-				activeFrame->setStyleSheet("QFrame{background-color: red;}");
+				activeFrame->setStyleSheet("QFrame{background-color: #FFA500;}"); // orange
 			} else {
-				activeFrame->setStyleSheet("QFrame{background-color: green;}");
+				activeFrame->setStyleSheet("QFrame{background-color: #00FF00;}"); // green
 			}
 		} else if (active == ACTIVE_PREVIEW) {
-			activeFrame->setStyleSheet("QFrame{background-color: green;}");
+			activeFrame->setStyleSheet("QFrame{background-color: #00FF00;}"); // green
 		} else if (active == ACTIVE_DOWNSTREAM_KEYER) {
-			activeFrame->setStyleSheet("QFrame{background-color: orange;}");
+			activeFrame->setStyleSheet("QFrame{background-color: #FFA500;}"); // orange
 		} else {
 			activeFrame->setStyleSheet("");
 		}
 	}
 	if (activeLabel) {
-		if (active == ACTIVE_PROGRAM) {
+		if (active == ACTIVE_STREAMING) {
+			activeLabel->setProperty("themeID", "error");
+			activeLabel->setProperty("class", "text-danger");
+			activeLabel->setText(QT_UTF8(obs_module_text("Streaming")));
+		} else if (active == ACTIVE_RECORDING) {
+			activeLabel->setProperty("themeID", "error");
+			activeLabel->setProperty("class", "text-danger");
+			activeLabel->setText(QT_UTF8(obs_module_text("Recording")));
+		} else if (active == ACTIVE_RECORDING_AND_STREAMING) {
+			activeLabel->setProperty("themeID", "error");
+			activeLabel->setProperty("class", "text-danger");
+			activeLabel->setText(QT_UTF8(obs_module_text("StreamingAndRecording")));
+		} else if (active == ACTIVE_RECORDING_PAUSED) {
+			activeLabel->setProperty("themeID", "warning");
+			activeLabel->setProperty("class", "text-warning");
+			activeLabel->setText(QT_UTF8(obs_module_text("RecordingPaused")));
+		} else if (active == ACTIVE_PROGRAM) {
 			activeLabel->setProperty("themeID", obs_frontend_preview_program_mode_active() ? "error" : "good");
+			activeLabel->setProperty("class",
+						 obs_frontend_preview_program_mode_active() ? "text-danger" : "text-success");
 			activeLabel->setText(QT_UTF8(obs_module_text("Active")));
 		} else if (active == ACTIVE_PREVIEW) {
 			activeLabel->setProperty("themeID", "good");
+			activeLabel->setProperty("class", "text-success");
 			activeLabel->setText(QT_UTF8(obs_module_text("Preview")));
 		} else if (active == ACTIVE_DOWNSTREAM_KEYER) {
-			activeLabel->setProperty("themeID", "good");
+			activeLabel->setProperty("themeID", "warning");
+			activeLabel->setProperty("class", "text-warning");
 			activeLabel->setText(QT_UTF8(obs_module_text("DownstreamKeyer")));
 		} else {
 			activeLabel->setText(QT_UTF8(obs_module_text("NotActive")));
 			activeLabel->setProperty("themeID", "");
+			activeLabel->setProperty("class", "");
 		}
 
 		/* force style sheet recalculation */
