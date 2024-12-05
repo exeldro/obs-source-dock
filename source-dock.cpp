@@ -1755,8 +1755,11 @@ void SourceDock::EnableSceneItems()
 		sceneItems->setVisible(true);
 		sceneItemsScrollArea->setVisible(true);
 	}
-
-	sceneItems->layout()->setProperty("sceneItemCount", GetSceneItemCount(scene));
+	int count = 0;
+	obs_scene_enum_items(scene, GetSceneItemCount, &count);
+	sceneItems->layout()->setProperty("sceneItemCount", count);
+	sceneItems->layout()->setProperty("row", 0);
+	sceneItems->layout()->setProperty("indent", 0);
 	obs_scene_enum_items(scene, AddSceneItem, sceneItems->layout());
 
 	auto itemVisible = [](void *data, calldata_t *cd) {
@@ -1812,28 +1815,37 @@ void SourceDock::RefreshItems()
 	EnableSceneItems();
 }
 
-int SourceDock::GetSceneItemCount(obs_scene_t *scene)
+bool SourceDock::GetSceneItemCount(obs_scene_t *scene, obs_sceneitem_t *item, void *data)
 {
-	int count = 0;
-	auto cb = [](obs_scene_t *, obs_sceneitem_t *, void *data) {
-		int *count = (int *)data;
-		(*count)++;
-		return true;
-	};
-	obs_scene_enum_items(scene, cb, &count);
-	return count;
+	UNUSED_PARAMETER(scene);
+	int *count = (int *)data;
+	if (obs_sceneitem_is_group(item))
+		obs_scene_enum_items(obs_group_from_source(obs_sceneitem_get_source(item)), GetSceneItemCount, count);
+	(*count)++;
+	return true;
 }
 
 bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item, void *data)
 {
 	UNUSED_PARAMETER(scene);
 	QGridLayout *layout = static_cast<QGridLayout *>(data);
+	int indent = layout->property("indent").toInt();
+	if (obs_sceneitem_is_group(item)) {
+		indent++;
+		layout->setProperty("indent", indent);
+		obs_scene_enum_items(obs_group_from_source(obs_sceneitem_get_source(item)), AddSceneItem, data);
+		indent--;
+		layout->setProperty("indent", indent);
+	}
 
 	auto source = obs_sceneitem_get_source(item);
 	int sceneItemCount = layout->property("sceneItemCount").toInt();
-	int row = sceneItemCount - obs_sceneitem_get_order_position(item) - 1;
-
-	auto label = new QLabel(QT_UTF8(obs_source_get_name(source)));
+	int row = layout->property("row").toInt();
+	row++;
+	layout->setProperty("row", row);
+	row = sceneItemCount - row;
+	auto name = QString(indent * 4, ' ') + QT_UTF8(obs_source_get_name(source));
+	auto label = new QLabel(name);
 	layout->addWidget(label, row, 0, Qt::AlignLeft | Qt::AlignVCenter);
 
 	if (obs_is_source_configurable(obs_source_get_id(source))) {
@@ -1878,6 +1890,7 @@ bool SourceDock::AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item, void *d
 	connect(vis, &QAbstractButton::clicked, setItemVisible);
 	return true;
 }
+
 void SourceDock::DisableSceneItems()
 {
 	if (!sceneItems)
