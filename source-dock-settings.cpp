@@ -382,7 +382,7 @@ void SourceDockSettingsDialog::RefreshTable()
 		label = new QLabel(t);
 		mainLayout->addWidget(label, row, col++);
 
-		label = new QLabel(parent == obs_frontend_get_main_window() ? "" : parent->windowTitle());
+		label = new QLabel(!parent || parent == obs_frontend_get_main_window() ? "" : parent->windowTitle());
 		mainLayout->addWidget(label, row, col++);
 
 		dock = it;

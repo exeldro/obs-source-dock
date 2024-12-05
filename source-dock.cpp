@@ -506,8 +506,12 @@ static void source_remove(void *data, calldata_t *call_data)
 	obs_source_t *source = static_cast<obs_source_t *>(calldata_ptr(call_data, "source"));
 	for (auto it = source_docks.begin(); it != source_docks.end();) {
 		if ((*it)->GetSource().Get() == source) {
-			(*it)->close();
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
+			obs_frontend_remove_dock((*it)->objectName().toUtf8().constData());
+#else
+			(*it)->parentWidget()->close();
 			(*it)->deleteLater();
+#endif
 			it = source_docks.erase(it);
 		} else {
 			++it;
