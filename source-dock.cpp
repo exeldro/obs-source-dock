@@ -1367,6 +1367,7 @@ void SourceDock::EnablePreview()
 			if (!activeFrame) {
 				activeFrame = new QFrame;
 				auto l = new QHBoxLayout();
+				l->setContentsMargins(2, 2, 2, 2);
 				activeFrame->setLayout(l);
 				replaceWidget(indexOf(preview), activeFrame);
 				l->addWidget(preview);
@@ -1415,6 +1416,7 @@ void SourceDock::EnablePreview()
 		activeLabel->setVisible(false);
 		activeFrame = new QFrame;
 		auto l = new QHBoxLayout();
+		l->setContentsMargins(2, 2, 2, 2);
 		l->addWidget(preview);
 		activeFrame->setLayout(l);
 		addWidget(activeFrame);
@@ -1654,6 +1656,7 @@ void SourceDock::EnableShowActive()
 		}
 		activeFrame = new QFrame;
 		auto l = new QHBoxLayout();
+		l->setContentsMargins(2, 2, 2, 2);
 		activeFrame->setLayout(l);
 		replaceWidget(indexOf(preview), activeFrame);
 		l->addWidget(preview);
