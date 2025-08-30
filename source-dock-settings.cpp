@@ -311,22 +311,9 @@ void SourceDockSettingsDialog::AddClicked()
 		tmp->EnableSceneItems();
 
 	source_docks.push_back(tmp);
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 	auto t = title.toUtf8();
 	obs_frontend_add_dock_by_id(t.constData(), t.constData(), tmp);
 	const auto dock = static_cast<QDockWidget *>(tmp->parentWidget());
-#else
-	const auto dock = new QDockWidget(main_window);
-	dock->setObjectName(title);
-	dock->setWindowTitle(title);
-	dock->setWidget(tmp);
-	dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-	dock->setFloating(true);
-	//dock->hide();
-
-	auto *a = static_cast<QAction *>(obs_frontend_add_dock(dock));
-	tmp->setAction(a);
-#endif
 
 	if (visibleCheckBox->isChecked())
 		dock->show();

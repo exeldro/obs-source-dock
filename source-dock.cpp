@@ -201,22 +201,9 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					tmp->SetCustomTextInputStyle(st);
 					obs_data_release(st);
 
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 					if (!obs_frontend_add_dock_by_id(title, title, tmp))
 						continue;
 					const auto d = static_cast<QDockWidget *>(tmp->parentWidget());
-#else
-					const auto d = new QDockWidget(main_window);
-					d->setObjectName(QString::fromUtf8(title));
-					d->setWindowTitle(QString::fromUtf8(title));
-					d->setWidget(tmp);
-					d->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-					d->setFloating(true);
-
-					auto *a = static_cast<QAction *>(obs_frontend_add_dock(d));
-					tmp->setAction(a);
-
-#endif
 
 					if (obs_data_get_bool(dock, "hidden"))
 						d->hide();
@@ -444,13 +431,7 @@ static void frontend_event(enum obs_frontend_event event, void *)
 	if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CLEANUP || event == OBS_FRONTEND_EVENT_EXIT) {
 		set_previous_scene_empty(nullptr, nullptr);
 		for (const auto &it : source_docks) {
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 			obs_frontend_remove_dock(it->objectName().toUtf8().constData());
-#else
-			it->parentWidget()->close();
-			delete (it->parentWidget());
-			delete (it);
-#endif
 		}
 		source_docks.clear();
 		for (const auto &it : source_windows) {
@@ -506,12 +487,7 @@ static void source_remove(void *data, calldata_t *call_data)
 	obs_source_t *source = static_cast<obs_source_t *>(calldata_ptr(call_data, "source"));
 	for (auto it = source_docks.begin(); it != source_docks.end();) {
 		if ((*it)->GetSource().Get() == source) {
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 			obs_frontend_remove_dock((*it)->objectName().toUtf8().constData());
-#else
-			(*it)->parentWidget()->close();
-			(*it)->deleteLater();
-#endif
 			it = source_docks.erase(it);
 		} else {
 			++it;
@@ -581,19 +557,6 @@ SourceDock::SourceDock(QString name, bool selected_, QWidget *parent)
 
 SourceDock::~SourceDock()
 {
-#if LIBOBS_API_VER < MAKE_SEMANTIC_VERSION(30, 0, 0)
-	auto dock = static_cast<QDockWidget *>(parentWidget());
-	if (dock) {
-
-		auto tva = dock->toggleViewAction();
-		if (tva)
-			QObject::disconnect(tva, &QAction::toggled, nullptr, 0);
-	}
-	if (action) {
-		QObject::disconnect(action, &QAction::triggered, nullptr, 0);
-		delete action;
-	}
-#endif
 	DisableFilters();
 	DisableProperties();
 	DisableSceneItems();
