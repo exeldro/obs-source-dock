@@ -14,7 +14,9 @@
 
 #ifdef ENABLE_WAYLAND
 #include <obs-nix-platform.h>
+#if QT_VERSION < QT_VERSION_CHECK(6, 9, 0)
 #include <qpa/qplatformnativeinterface.h>
+#endif
 #include <QGuiApplication>
 
 class SurfaceEventFilter : public QObject {
@@ -165,8 +167,12 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 		break;
 #ifdef ENABLE_WAYLAND
 	case OBS_NIX_PLATFORM_WAYLAND: {
+#if QT_VERSION < QT_VERSION_CHECK(6, 9, 0)
 		QPlatformNativeInterface *native = QGuiApplication::platformNativeInterface();
 		gswindow.display = native->nativeResourceForWindow("surface", window);
+#else
+		gswindow.display = (void *)window->winId();
+#endif
 		success = gswindow.display != nullptr;
 		break;
 	}

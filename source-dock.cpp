@@ -173,7 +173,6 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 						tmp->SetSource(s);
 					}
 
-					source_docks.push_back(tmp);
 					if (obs_data_get_bool(dock, "preview"))
 						tmp->EnablePreview();
 
@@ -201,8 +200,11 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 					tmp->SetCustomTextInputStyle(st);
 					obs_data_release(st);
 
-					if (!obs_frontend_add_dock_by_id(title, title, tmp))
+					if (!obs_frontend_add_dock_by_id(title, title, tmp)) {
+						delete tmp;
 						continue;
+					}
+					source_docks.push_back(tmp);
 					const auto d = static_cast<QDockWidget *>(tmp->parentWidget());
 
 					if (obs_data_get_bool(dock, "hidden"))

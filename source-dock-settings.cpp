@@ -310,9 +310,12 @@ void SourceDockSettingsDialog::AddClicked()
 	if (sceneItemsCheckBox->isChecked())
 		tmp->EnableSceneItems();
 
-	source_docks.push_back(tmp);
 	auto t = title.toUtf8();
-	obs_frontend_add_dock_by_id(t.constData(), t.constData(), tmp);
+	if (!obs_frontend_add_dock_by_id(t.constData(), t.constData(), tmp)) {
+		delete tmp;
+		return;
+	}
+	source_docks.push_back(tmp);
 	const auto dock = static_cast<QDockWidget *>(tmp->parentWidget());
 
 	if (visibleCheckBox->isChecked())
@@ -356,7 +359,9 @@ void SourceDockSettingsDialog::RefreshTable()
 		QString t = it->windowTitle();
 		if (!title.isEmpty() && !t.contains(title, Qt::CaseInsensitive))
 			continue;
-		const auto parent = dynamic_cast<QMainWindow *>(it->parent()->parent());
+		auto parent = dynamic_cast<QMainWindow *>(it->parent()->parent());
+		if (!parent)
+			parent = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 		if (!window.isEmpty()) {
 			auto w = parent->windowTitle();
 			if (!w.contains(window, Qt::CaseInsensitive))
@@ -633,9 +638,7 @@ void SourceDockSettingsDialog::DeleteClicked()
 				++it;
 				continue;
 			}
-			(*it)->deleteLater();
-			(*it)->parentWidget()->close();
-			(*it)->parentWidget()->deleteLater();
+			obs_frontend_remove_dock((*it)->objectName().toUtf8().constData());
 			it = source_docks.erase(it);
 		}
 	}
