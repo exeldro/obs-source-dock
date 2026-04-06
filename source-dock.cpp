@@ -1633,7 +1633,7 @@ void SourceDock::EnableShowActive()
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
 		if (sh) {
 			signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
-			signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
+			signal_handler_disconnect(sh, "deactivate", OBSActiveChanged, this);
 			signal_handler_connect(sh, "activate", OBSActiveChanged, this);
 			signal_handler_connect(sh, "deactivate", OBSActiveChanged, this);
 		}
@@ -1644,7 +1644,7 @@ void SourceDock::EnableShowActive()
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
 		if (sh) {
 			signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
-			signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
+			signal_handler_disconnect(sh, "deactivate", OBSActiveChanged, this);
 			signal_handler_connect(sh, "activate", OBSActiveChanged, this);
 			signal_handler_connect(sh, "deactivate", OBSActiveChanged, this);
 		}
@@ -1659,7 +1659,7 @@ void SourceDock::EnableShowActive()
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	if (sh) {
 		signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
-		signal_handler_disconnect(sh, "activate", OBSActiveChanged, this);
+		signal_handler_disconnect(sh, "deactivate", OBSActiveChanged, this);
 		signal_handler_connect(sh, "activate", OBSActiveChanged, this);
 		signal_handler_connect(sh, "deactivate", OBSActiveChanged, this);
 	}
