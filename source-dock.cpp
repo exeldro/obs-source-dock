@@ -71,7 +71,7 @@ static void frontend_save_load(obs_data_t *save_data, bool saving, void *)
 			auto st = it->GetCustomTextInputStyle();
 			if (st)
 				obs_data_set_obj(dock, "textinputstyle", st);
-			obs_data_set_string(dock, "geometry", it->saveGeometry().toBase64().constData());
+			obs_data_set_string(dock, "geometry", it->parentWidget()->saveGeometry().toBase64().constData());
 			obs_data_set_string(dock, "split", it->saveSplitState().toBase64().constData());
 			auto *p = dynamic_cast<QMainWindow *>(it->parent()->parent());
 			if (!p || p == main_window) {
