@@ -5,6 +5,8 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QPushButton>
+#include <QSizePolicy>
+#include <QToolButton>
 #include <QWidgetAction>
 #include <QWindow>
 #include <QScreen>
@@ -14,6 +16,8 @@
 #include <QFont>
 #include <QFontDialog>
 #include <QColorDialog>
+
+#include "properties-view.hpp"
 
 #include "media-control.hpp"
 #include "source-dock-settings.hpp"
@@ -353,7 +357,7 @@ void update_active(void *param)
 		const char *scene_name = obs_source_get_name(dsk);
 		for (auto &i : source_active) {
 			auto *sn = obs_source_get_name(i.first);
-			if (strcmp(sn, scene_name) == 0) {
+			if (sn && scene_name && strcmp(sn, scene_name) == 0) {
 				i.second = ACTIVE_DOWNSTREAM_KEYER;
 				break;
 			}
@@ -368,7 +372,7 @@ void update_active(void *param)
 					return;
 				for (auto &i : *m) {
 					auto *sn = obs_source_get_name(i.first);
-					if (strcmp(sn, child_name) == 0) {
+					if (sn && strcmp(sn, child_name) == 0) {
 						i.second = ACTIVE_DOWNSTREAM_KEYER;
 						break;
 					}
@@ -382,7 +386,7 @@ void update_active(void *param)
 		const char *scene_name = obs_source_get_name(program);
 		for (auto &i : source_active) {
 			auto *sn = obs_source_get_name(i.first);
-			if (strcmp(sn, scene_name) == 0) {
+			if (sn && scene_name && strcmp(sn, scene_name) == 0) {
 				i.second = ACTIVE_PROGRAM;
 				break;
 			}
@@ -397,7 +401,7 @@ void update_active(void *param)
 					return;
 				for (auto &i : *m) {
 					auto *sn = obs_source_get_name(i.first);
-					if (strcmp(sn, child_name) == 0) {
+					if (sn && strcmp(sn, child_name) == 0) {
 						i.second = ACTIVE_PROGRAM;
 						break;
 					}
@@ -726,7 +730,7 @@ void SourceDock::ActiveChanged()
 		const char *scene_name = obs_source_get_name(dsk);
 
 		auto *sn = obs_source_get_name(source);
-		if (strcmp(sn, scene_name) == 0) {
+		if (sn && scene_name && strcmp(sn, scene_name) == 0) {
 			active = ACTIVE_DOWNSTREAM_KEYER;
 		}
 		std::pair<obs_source_t *, int> t = std::pair<obs_source_t *, int>(source, active);
@@ -740,7 +744,7 @@ void SourceDock::ActiveChanged()
 					return;
 
 				auto *sn = obs_source_get_name(m->first);
-				if (strcmp(sn, child_name) == 0) {
+				if (sn && strcmp(sn, child_name) == 0) {
 					m->second = ACTIVE_DOWNSTREAM_KEYER;
 				}
 			},
@@ -752,7 +756,7 @@ void SourceDock::ActiveChanged()
 	if (auto *program = obs_frontend_get_current_scene()) {
 		const char *scene_name = obs_source_get_name(program);
 		auto *sn = obs_source_get_name(source);
-		if (strcmp(sn, scene_name) == 0) {
+		if (sn && scene_name && strcmp(sn, scene_name) == 0) {
 			active = ACTIVE_PROGRAM;
 		}
 		std::pair<obs_source_t *, int> t = std::pair<obs_source_t *, int>(source, active);
@@ -766,7 +770,7 @@ void SourceDock::ActiveChanged()
 					return;
 
 				auto *sn = obs_source_get_name(m->first);
-				if (strcmp(sn, child_name) == 0) {
+				if (sn && strcmp(sn, child_name) == 0) {
 					m->second = ACTIVE_PROGRAM;
 				}
 			},
@@ -1880,61 +1884,212 @@ bool SourceDock::SceneItemsEnabled()
 	return sceneItems != nullptr && sceneItems->isVisibleTo(this);
 }
 
-void SourceDock::EnableProperties()
-{
-	if (propertiesButton) {
-		propertiesButton->setVisible(true);
-		return;
+/* -------------------------------------------------------- */
+
+class FilterCollapsibleSection : public QWidget {
+public:
+	FilterCollapsibleSection(const QString &title, QWidget *body,
+				 QWidget *parent = nullptr)
+		: QWidget(parent), body_(body)
+	{
+		auto *v = new QVBoxLayout(this);
+		v->setContentsMargins(0, 0, 0, 0);
+		v->setSpacing(0);
+
+		header_ = new QToolButton(this);
+		header_->setText(title);
+		header_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+		header_->setArrowType(Qt::DownArrow);
+		header_->setCheckable(true);
+		header_->setChecked(true);
+		header_->setSizePolicy(QSizePolicy::Expanding,
+				       QSizePolicy::Fixed);
+		header_->setStyleSheet(
+			"QToolButton { text-align: left; padding: 6px;"
+			"  border: 1px solid #444; background-color: #333;"
+			"  color: #ddd; font-weight: bold; }"
+			"QToolButton:hover { background-color: #3a3a3a; }"
+			"QToolButton:checked { background-color: #3a3a3a; }");
+
+		body_->setParent(this);
+		v->addWidget(header_);
+		v->addWidget(body_);
+
+		QObject::connect(header_, &QToolButton::toggled, this,
+			[this](bool checked) { setExpanded(checked); });
 	}
 
-	propertiesButton = new QPushButton;
-	propertiesButton->setObjectName(QStringLiteral("sourcePropertiesButton"));
-	propertiesButton->setText(QT_UTF8(obs_module_text("Properties")));
-	addWidget(propertiesButton);
-	auto openProps = [this]() {
-		obs_frontend_open_source_properties(source);
-	};
-	connect(propertiesButton, &QAbstractButton::clicked, openProps);
+	void setExpanded(bool expanded)
+	{
+		body_->setVisible(expanded);
+		header_->setArrowType(expanded ? Qt::DownArrow
+					       : Qt::RightArrow);
+	}
+
+	void setTitle(const QString &title) { header_->setText(title); }
+
+private:
+	QToolButton *header_ = nullptr;
+	QWidget *body_ = nullptr;
+};
+
+static void source_dock_collect_filter(obs_source_t *, obs_source_t *child,
+				       void *param)
+{
+	auto *vec = static_cast<std::vector<obs_source_t *> *>(param);
+	vec->push_back(child);
+}
+
+/* -------------------------------------------------------- */
+
+void SourceDock::EnableProperties()
+{
+	if (propertiesView) {
+		propertiesView->setVisible(true);
+		return;
+	}
+	if (!source)
+		return;
+
+	OBSDataAutoRelease settings = obs_source_get_settings(source);
+	propertiesView = new OBSPropertiesView(
+		settings.Get(), source.Get(),
+		(PropertiesReloadCallback)obs_source_properties, nullptr,
+		(PropertiesVisualUpdateCb)obs_source_update);
+	propertiesView->setMinimumHeight(100);
+	addWidget(propertiesView);
 }
 
 void SourceDock::DisableProperties()
 {
-	if (!propertiesButton)
+	if (!propertiesView)
 		return;
-	propertiesButton->setVisible(false);
+	propertiesView->setVisible(false);
 }
 
 bool SourceDock::PropertiesEnabled()
 {
-	return propertiesButton != nullptr && propertiesButton->isVisible();
+	return propertiesView != nullptr &&
+	       propertiesView->isVisibleTo(this);
 }
 
 void SourceDock::EnableFilters()
 {
-	if (filtersButton) {
-		filtersButton->setVisible(true);
+	if (filtersScroll) {
+		filtersScroll->setVisible(true);
 		return;
 	}
-	filtersButton = new QPushButton;
-	filtersButton->setObjectName(QStringLiteral("sourceFiltersButton"));
-	filtersButton->setText(QT_UTF8(obs_module_text("Filters")));
-	addWidget(filtersButton);
-	auto openProps = [this]() {
-		obs_frontend_open_source_filters(source);
-	};
-	connect(filtersButton, &QAbstractButton::clicked, openProps);
+	if (!source)
+		return;
+
+	filtersScroll = new QScrollArea(this);
+	filtersScroll->setWidgetResizable(true);
+	filtersScroll->setFrameShape(QFrame::NoFrame);
+	filtersContainer = new QWidget();
+	filtersLayout = new QVBoxLayout(filtersContainer);
+	filtersLayout->setContentsMargins(4, 4, 4, 4);
+	filtersLayout->setSpacing(4);
+	filtersLayout->addStretch();
+	filtersScroll->setWidget(filtersContainer);
+	filtersScroll->setMinimumHeight(100);
+	addWidget(filtersScroll);
+
+	signal_handler_t *sh = obs_source_get_signal_handler(source);
+	filterAddSig.Connect(sh, "filter_add", OnFilterListChanged, this);
+	filterRemoveSig.Connect(sh, "filter_remove", OnFilterListChanged,
+				this);
+	reorderFiltersSig.Connect(sh, "reorder_filters", OnFilterListChanged,
+				  this);
+
+	RebuildFilterSections();
 }
 
 void SourceDock::DisableFilters()
 {
-	if (!filtersButton)
+	if (!filtersScroll)
 		return;
-	filtersButton->setVisible(false);
+	filtersScroll->setVisible(false);
 }
 
 bool SourceDock::FiltersEnabled()
 {
-	return filtersButton != nullptr && filtersButton->isVisibleTo(this);
+	return filtersScroll != nullptr && filtersScroll->isVisibleTo(this);
+}
+
+void SourceDock::OnFilterListChanged(void *data, calldata_t *)
+{
+	auto *self = static_cast<SourceDock *>(data);
+	QMetaObject::invokeMethod(self, &SourceDock::RebuildFilterSections);
+}
+
+void SourceDock::ClearFilterSections()
+{
+	for (auto &entry : filterEntries) {
+		if (entry.section) {
+			filtersLayout->removeWidget(entry.section);
+			entry.section->deleteLater();
+		}
+	}
+	filterEntries.clear();
+}
+
+void SourceDock::RebuildFilterSections()
+{
+	if (!filtersLayout || !source)
+		return;
+
+	ClearFilterSections();
+
+	std::vector<obs_source_t *> filters;
+	obs_source_enum_filters(source, source_dock_collect_filter, &filters);
+
+	int insertAt = 0;
+	for (obs_source_t *f : filters) {
+		FilterEntry entry;
+		entry.filter = OBSSource(f);
+
+		OBSDataAutoRelease settings = obs_source_get_settings(f);
+		entry.view = new OBSPropertiesView(
+			settings.Get(), f,
+			(PropertiesReloadCallback)obs_source_properties,
+			nullptr,
+			(PropertiesVisualUpdateCb)obs_source_update);
+		entry.view->setMinimumHeight(60);
+
+		const char *fname = obs_source_get_name(f);
+		entry.section = new FilterCollapsibleSection(
+			QString::fromUtf8(fname ? fname : ""), entry.view,
+			filtersContainer);
+
+		signal_handler_t *sh = obs_source_get_signal_handler(f);
+		OBSPropertiesView *view = entry.view;
+		FilterCollapsibleSection *section = entry.section;
+		entry.renameSig.Connect(
+			sh, "rename",
+			[](void *data, calldata_t *params) {
+				auto *s = static_cast<
+					FilterCollapsibleSection *>(data);
+				const char *newName =
+					calldata_string(params, "new_name");
+				QString name = QString::fromUtf8(
+					newName ? newName : "");
+				QMetaObject::invokeMethod(s,
+					[s, name]() { s->setTitle(name); });
+			},
+			section);
+		entry.updateSig.Connect(
+			sh, "update_properties",
+			[](void *data, calldata_t *) {
+				auto *v = static_cast<OBSPropertiesView *>(
+					data);
+				QMetaObject::invokeMethod(v,
+					[v]() { v->ReloadProperties(); });
+			},
+			view);
+
+		filtersLayout->insertWidget(insertAt++, entry.section);
+		filterEntries.push_back(std::move(entry));
+	}
 }
 
 static inline QColor color_from_int(long long val)

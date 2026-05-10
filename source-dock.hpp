@@ -7,6 +7,7 @@
 #include <QPlainTextEdit>
 #include <QScrollArea>
 #include <memory>
+#include <vector>
 
 #include "obs.h"
 #include <obs-frontend-api.h>
@@ -16,6 +17,9 @@
 #include "obs.hpp"
 #include "qt-display.hpp"
 #include "volume-meter.hpp"
+
+class OBSPropertiesView;
+class FilterCollapsibleSection;
 
 #define SHOW_PREVIEW 1
 #define SHOW_AUDIO 2
@@ -102,8 +106,22 @@ private:
 	QLabel *activeLabel = nullptr;
 	QWidget *sceneItems = nullptr;
 	QScrollArea *sceneItemsScrollArea = nullptr;
-	QPushButton *propertiesButton = nullptr;
-	QPushButton *filtersButton = nullptr;
+	OBSPropertiesView *propertiesView = nullptr;
+	QScrollArea *filtersScroll = nullptr;
+	QWidget *filtersContainer = nullptr;
+	QVBoxLayout *filtersLayout = nullptr;
+
+	struct FilterEntry {
+		OBSSource filter;
+		FilterCollapsibleSection *section = nullptr;
+		OBSPropertiesView *view = nullptr;
+		OBSSignal renameSig;
+		OBSSignal updateSig;
+	};
+	std::vector<FilterEntry> filterEntries;
+	OBSSignal filterAddSig;
+	OBSSignal filterRemoveSig;
+	OBSSignal reorderFiltersSig;
 	QPlainTextEdit *textInput = nullptr;
 	QTimer *textInputTimer = nullptr;
 	obs_data_t *textInputCustomStyle = nullptr;
@@ -121,8 +139,12 @@ private:
 	static void OBSVolume(void *data, calldata_t *calldata);
 	static void OBSMute(void *data, calldata_t *calldata);
 	static void OBSActiveChanged(void *, calldata_t *);
+	static void OnFilterListChanged(void *data, calldata_t *params);
 	static bool AddSceneItem(obs_scene_t *scene, obs_sceneitem_t *item, void *data);
 	static bool GetSceneItemCount(obs_scene_t *scene, obs_sceneitem_t *item, void *data);
+
+	void RebuildFilterSections();
+	void ClearFilterSections();
 	bool GetSourceRelativeXY(int mouseX, int mouseY, int &x, int &y);
 
 	bool HandleMouseClickEvent(QMouseEvent *event);

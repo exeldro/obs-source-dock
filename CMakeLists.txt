@@ -22,7 +22,7 @@ if(BUILD_OUT_OF_TREE)
   find_package(obs-frontend-api REQUIRED)
   target_link_libraries(${PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 else()
-  target_link_libraries(${PROJECT_NAME} PRIVATE OBS::frontend-api)
+  target_link_libraries(${PROJECT_NAME} PRIVATE OBS::frontend-api OBS::properties-view)
 endif()
 
 find_package(Qt6 COMPONENTS Widgets Core)
